@@ -1,0 +1,23 @@
+[project]
+name = "KSRISax"
+description = "Kohn Sham Radial Ion Sphere in JAX"
+readme = "README.md"
+authors = [
+    {name = "Aidan Crilly @ Imperial College London", email="a.crilly16@imperial.ac.uk"},
+]
+license = "MIT"
+license-files = ["LICENSE*"]
+requires-python = ">=3.13"
+dependencies = [
+    "jax",
+    "equinox",
+    ]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+cpu = []
+gpu = ["jax[cuda12]"]
+dev = [
+    "pytest",
+]
+
