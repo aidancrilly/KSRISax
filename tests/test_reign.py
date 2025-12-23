@@ -8,17 +8,17 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 def test_KohnShamEigen():
-    grid = Grid.create(1e-8, 100.0, 500)
+    grid = Grid.create(0.0, 100.0, 5000)
     V_ext = CoulombPotential(grid, Z=1.0)
-    V_H = jnp.zeros_like(grid.x)
-    V_xc = jnp.zeros_like(grid.x)
+    V_H = jnp.zeros_like(grid.xc)
+    V_xc = jnp.zeros_like(grid.xc)
 
     KSS = KohnShamSolver(grid=grid)
 
     eigvals, eigvecs = KSS.EigenSolve(0, V_ext, V_H, V_xc)
 
-    assert eigvals.shape == (500,)
-    assert eigvecs.shape == (500, 500)
+    assert eigvals.shape == (grid.Nx,)
+    assert eigvecs.shape == (grid.Nx, grid.Nx)
 
     bound_states = eigvals[eigvals < 0]
     for n, energy in enumerate(bound_states, start=1):

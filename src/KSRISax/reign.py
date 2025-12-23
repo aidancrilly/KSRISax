@@ -9,11 +9,10 @@ class KohnShamSolver(eqx.Module):
     @jax.jit
     def EigenSolve(self, l, V_ext, V_H, V_xc):
 
-        V_centrifugal = jnp.where(self.grid.x > 1e-10, l * (l + 1) / (2.0 * self.grid.x**2), 0.0)
+        V_centrifugal = jnp.where(self.grid.xc > 1e-10, l * (l + 1) / (2.0 * self.grid.xc**2), 0.0)
 
         Vdiag = V_ext + V_H + V_xc + V_centrifugal
         
-
         KE_diag = - 0.5 * jnp.full(self.grid.Nx, -2.0) / (self.grid.dx**2)
         KE_offdiag = - 0.5 * jnp.full(self.grid.Nx - 1, 1.0) / (self.grid.dx**2)
 
