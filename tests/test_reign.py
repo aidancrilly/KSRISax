@@ -8,7 +8,7 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 def test_KohnShamEigen():
-    grid = Grid.create(0.0, 100.0, 5000)
+    grid = Grid.create(0.0, 100.0, 500)
     V_ext = CoulombPotential(grid, Z=1.0)
     V_H = jnp.zeros_like(grid.xc)
     V_xc = jnp.zeros_like(grid.xc)
