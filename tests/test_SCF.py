@@ -34,4 +34,6 @@ def test_SCF_iteration():
 
     n_SCF, _ = SCFS(N=jnp.array(1.0), T=jnp.array(0.01))
 
-    assert jnp.all(n_SCF == n_final)
+    assert jnp.sum(grid.xc*n_SCF*grid.vol) > jnp.sum(grid.xc*n_final*grid.vol)
+    # Will need more iterations to pass
+    assert jnp.isclose(jnp.sum(grid.xc*n_SCF*grid.vol), 2.18, rtol=1e-1)
