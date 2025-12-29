@@ -26,7 +26,7 @@ class SelfConsistentFieldSolver(eqx.Module):
 
         mu, occ = find_chemical_potential_w_KSstates(eigvals, degeneracies=degeneracy, V=jnp.sum(self.grid.vol), N=args['N'], T=args['T'])
 
-        n_new = degeneracy * jnp.sum(((eigvecs / self.grid.xc[:, jnp.newaxis])**2) * occ[jnp.newaxis, :], axis=1)
+        n_new = jnp.sum(((eigvecs / self.grid.xc[:, jnp.newaxis])**2) * occ[jnp.newaxis, :], axis=1)
 
         # Normalise
         n_new = args['N']/jnp.sum(n_new*self.grid.vol) * n_new
