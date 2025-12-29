@@ -21,7 +21,7 @@ def test_SCF_iteration():
         PoissonSolver=PS,
         ExternalPotential=lambda g: CoulombPotential(g, Z=1.0),
         ExchangeCorrelationPotential=lambda n, g: jnp.zeros_like(g.xc),
-        max_iterations=50,
+        max_iterations=1,
         convergence_threshold=1e-4)
     
     n_initial = jnp.zeros_like(grid.xc)
@@ -31,3 +31,7 @@ def test_SCF_iteration():
     ground_state_norm = jnp.sum((ground_state**2) * grid.vol)
 
     assert jnp.allclose(grid.xc**2 * n_final, grid.xc**2 * (ground_state**2) / ground_state_norm, atol=1e-2)
+
+    n_SCF, _ = SCFS(N=jnp.array(1.0), T=jnp.array(0.01))
+
+    assert jnp.all(n_SCF == n_final)

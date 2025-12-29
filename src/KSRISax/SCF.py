@@ -38,13 +38,12 @@ class SelfConsistentFieldSolver(eqx.Module):
         }
 
         return n_new, aux
-
-    @jax.jit
+    
     def __call__(self, N, T):
         n_initial = jnp.zeros_like(self.grid.xc)
 
         solver = opt.Newton(rtol=self.convergence_threshold, atol=1e-8, norm = opt.max_norm)
-        fp = opt.fixed_point(fn=self.scf_iteration, solver = solver, y0 = n_initial, args = {'N' : N, 'T' : T}, max_steps = self.max_itertions, has_aux=True)
+        fp = opt.fixed_point(fn=self.scf_iteration, solver = solver, y0 = n_initial, args = {'N' : N, 'T' : T}, max_steps = self.max_iterations, has_aux=True, throw = False)
 
         n_final = fp.value
         return n_final, fp.aux
