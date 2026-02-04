@@ -72,7 +72,7 @@ class KohnShamSolver(eqx.Module):
         eigvals, eigvecs = self.cholesky_solve(H,B)
 
         # Normalise eigenvectors
-        # norm_factors = jnp.sqrt(jnp.sum((eigvecs**2) * self.grid.vol[:,jnp.newaxis], axis=0))
-        # eigvecs = eigvecs / norm_factors
+        norm_factors = jnp.sqrt(jnp.sum((eigvecs**2) * self.grid.vol[:,jnp.newaxis], axis=0))
+        eigvecs = eigvecs / norm_factors
 
         return eigvals, eigvecs
