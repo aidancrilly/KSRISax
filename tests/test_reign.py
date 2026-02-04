@@ -21,6 +21,7 @@ def test_KohnShamEigen():
     assert eigvecs.shape == (grid.Nx, grid.Nx)
 
     bound_states = eigvals[eigvals < 0]
+    print(bound_states)
     for n, energy in enumerate(bound_states, start=1):
         expected_energy = -0.5 / n**2
         assert jnp.isclose(energy, expected_energy, atol=1e-2)
