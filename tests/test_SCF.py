@@ -10,7 +10,7 @@ import jax
 jax.config.update("jax_enable_x64", True)
 
 def test_SCF_iteration():
-    grid = Grid.create(0.0, 10.0, 800)
+    grid = Grid.create(0.0, 10.0, 500)
 
     KSS = KohnShamSolver(grid=grid)
     PS = PoissonSolver(grid=grid)

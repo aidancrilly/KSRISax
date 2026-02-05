@@ -11,6 +11,7 @@ requires-python = ">=3.13"
 dependencies = [
     "jax",
     "equinox",
+    "MinimalTFFDintPy @ git+https://github.com/aidancrilly/MinimalTFFDintPy.git"
     ]
 dynamic = ["version"]
 

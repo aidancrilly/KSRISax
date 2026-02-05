@@ -3,7 +3,7 @@ import optimistix as opt
 import jax
 import jax.numpy as jnp
 from typing import Callable
-from KSRISax.chem import find_chemical_potential_w_KSstates
+from KSRISax.chem import *
 
 class SelfConsistentFieldSolver(eqx.Module):
     grid: eqx.Module
@@ -13,20 +13,38 @@ class SelfConsistentFieldSolver(eqx.Module):
     ExchangeCorrelationPotential: Callable
     max_iterations: int = eqx.field(static=True)
     convergence_threshold: float = eqx.field(static=True)
+    L_max: int = eqx.field(static=True, default=0)
 
     def scf_iteration(self, n, args):
         V_ext = self.ExternalPotential(self.grid)
         V_H = self.PoissonSolver.solve(n, V_gauge = 0.0)#-V_ext[-1])
         V_xc = self.ExchangeCorrelationPotential(n, self.grid)
 
-        l = 0
-        degeneracy = 2 * (2 * l + 1)
+        eigvals = []
+        eigvecs = []
+        degen = []
+        for l in range(self.L_max+1):
+            degeneracy = 2 * (2 * l + 1)
 
-        eigvals, eigvecs = self.KohnShamSolver.EigenSolve(l, V_ext, V_H, V_xc)
+            _eigvals, _eigvecs = self.KohnShamSolver.EigenSolve(l, V_ext, V_H, V_xc)
 
-        mu, occ = find_chemical_potential_w_KSstates(eigvals, degeneracies=degeneracy, V=jnp.sum(self.grid.vol), N=args['N'], T=args['T'])
+            eigvals.append(_eigvals)
+            eigvecs.append(_eigvecs)
+            degen.append(degeneracy * jnp.ones_like(_eigvals))
 
-        n_new = jnp.sum(((eigvecs / self.grid.xc[:, jnp.newaxis])**2) * occ[jnp.newaxis, :], axis=1)
+        eigvals = jnp.concatenate(eigvals)
+        eigvecs = jnp.concatenate(eigvecs, axis=1)
+        degen   = jnp.concatenate(degen)
+
+        V_tot = jnp.sum(self.grid.vol)
+
+        mu, occ = find_chemical_potential_w_freecontinuum(eigvals, degeneracies=degen, V=V_tot, N=args['N'], T=args['T'])
+
+        # Calculate new density
+        # Bound state contribution
+        n_new = jnp.sum(((eigvecs / self.grid.xc[:, jnp.newaxis])**2) * occ['state_occ'][jnp.newaxis, :], axis=1)
+        # Free state contribution
+        n_new += occ['free_occ'] / V_tot
 
         # Normalise
         n_new = args['N']/jnp.sum(n_new*self.grid.vol) * n_new
