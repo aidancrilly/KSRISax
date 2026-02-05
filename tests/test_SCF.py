@@ -21,7 +21,7 @@ def test_SCF_iteration():
         PoissonSolver=PS,
         ExternalPotential=lambda g: CoulombPotential(g, Z=1.0),
         ExchangeCorrelationPotential=lambda n, g: jnp.zeros_like(g.xc),
-        max_iterations=1,
+        max_iterations=3,
         convergence_threshold=1e-4)
     
     n_initial = jnp.zeros_like(grid.xc)
