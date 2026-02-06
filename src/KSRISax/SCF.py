@@ -17,7 +17,7 @@ class SelfConsistentFieldSolver(eqx.Module):
 
     def scf_iteration(self, n, args):
         V_ext = self.ExternalPotential(self.grid)
-        V_H = self.PoissonSolver.solve(n, V_gauge = 0.0)#-V_ext[-1])
+        V_H = self.PoissonSolver.solve(n, V_gauge = 0.0)
         V_xc = self.ExchangeCorrelationPotential(n, self.grid)
 
         eigvals = []
@@ -43,7 +43,7 @@ class SelfConsistentFieldSolver(eqx.Module):
         # Calculate new density
         # Bound state contribution
         n_new = jnp.sum(((eigvecs / self.grid.xc[:, jnp.newaxis])**2) * occ['state_occ'][jnp.newaxis, :], axis=1)
-        # Free state contribution
+        # Free state contribution (uniform)
         n_new += occ['free_occ'] / V_tot
 
         # Normalise
@@ -57,8 +57,7 @@ class SelfConsistentFieldSolver(eqx.Module):
 
         return n_new, aux
     
-    def __call__(self, N, T):
-        n_initial = jnp.zeros_like(self.grid.xc)
+    def __call__(self, N, T, n_initial):
 
         solver = opt.Newton(rtol=self.convergence_threshold, atol=1e-8, norm = opt.max_norm)
         fp = opt.fixed_point(fn=self.scf_iteration, solver = solver, y0 = n_initial, args = {'N' : N, 'T' : T}, max_steps = self.max_iterations, has_aux=True, throw = False)

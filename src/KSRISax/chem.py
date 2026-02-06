@@ -12,7 +12,7 @@ def bound_mask(E):
     return jnp.where(E < 0.0, 1.0, 0.0)
 
 def find_chemical_potential_w_freecontinuum(energies, degeneracies, V, N, T, tol=1e-6, max_iter=100):
-    mu_lower = jnp.min(energies) - 10.0 * T
+    mu_lower = jnp.min(energies) - 100.0 * T
     mu_upper = 10.0 * T # May need adjusted
 
     def root_func(mu, args):
