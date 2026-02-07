@@ -14,9 +14,15 @@ class PoissonSolver(eqx.Module):
         rhs = - n * self.grid.vol
 
         # Construct the tridiagonal matrix
-        diag = - (self.grid.xb[1:]**2 + self.grid.xb[:-1]**2) / self.grid.dx
-        lower_diag = self.grid.xb[1:-1]**2 / self.grid.dx
-        upper_diag = self.grid.xb[1:-1]**2 / self.grid.dx
+        if(self.grid.log):
+            diag = - (self.grid.xb[1:]**2 / self.grid.dx[1:] + self.grid.xb[:-1]**2 / self.grid.dx[:-1])
+            lower_diag = self.grid.xb[1:-1]**2 / self.grid.dx[1:-1]
+            upper_diag = self.grid.xb[1:-1]**2 / self.grid.dx[1:-1]
+            diag = diag.at[0].set(-self.grid.xb[1]**2 / self.grid.dx[1])
+        else:
+            diag = - (self.grid.xb[1:]**2 + self.grid.xb[:-1]**2) / self.grid.dx
+            lower_diag = self.grid.xb[1:-1]**2 / self.grid.dx
+            upper_diag = self.grid.xb[1:-1]**2 / self.grid.dx
 
         # BCs
         # diag = diag.at[-1].set(1.0)

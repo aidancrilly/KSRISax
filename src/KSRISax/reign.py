@@ -90,10 +90,6 @@ class KohnShamSolver(eqx.Module):
     @jax.jit
     def EigenSolve(self, l, V_ext, V_H, V_xc):
 
-        V_centrifugal = jnp.where(self.grid.xc > 1e-10, l * (l + 1) / (2.0 * self.grid.xc**2), 0.0)
-
-        Vdiag = V_ext + V_H + V_xc + V_centrifugal
-
         # Creating matrices for Numerov
         A_lower = jnp.ones(self.grid.Nx-1)
         A_mid = -2 * jnp.ones(self.grid.Nx)
@@ -103,20 +99,46 @@ class KohnShamSolver(eqx.Module):
         B_mid = 10 * jnp.ones(self.grid.Nx)
         B_upper = jnp.ones(self.grid.Nx-1)
 
-        # Impose boundary condition at r=0
-        # Ghost cell u_-1 = (-1)^(l+1) * u_1 --> modifies first row of A and B
-        s = (-1)**(l+1)
-        A_mid = A_mid.at[0].set(s - 2)
-        B_mid = B_mid.at[0].set(10 + s)
+        if(self.grid.log):
+            A = (jnp.diag(A_lower, k = -1) + jnp.diag(A_mid, k = 0) + jnp.diag(A_upper, k = 1)) / self.grid.log_spacing ** 2
+            B = (jnp.diag(B_lower, k = -1) + jnp.diag(B_mid, k = 0) + jnp.diag(B_upper, k = 1)) / 12
 
-        A = (jnp.diag(A_lower, k = -1) + jnp.diag(A_mid, k = 0) + jnp.diag(A_upper, k = 1)) / self.grid.dx ** 2
-        B = (jnp.diag(B_lower, k = -1) + jnp.diag(B_mid, k = 0) + jnp.diag(B_upper, k = 1)) / 12
+            # Potential terms
+            Vdiag = V_ext + V_H + V_xc
+            Udiag = jnp.diag(0.5 * (l * (l + 1) + 0.25) + self.grid.xc**2 * Vdiag)
+            R2 = jnp.diag(self.grid.xc**2)
+            
+            # constructing Hamiltonian matrix
+            H = -1/2 * A + B @ Udiag
+            B = B @ R2
 
-        # constructing Hamiltonian matrix
-        H = -1/2 * A + B @ jnp.diag(Vdiag)
+            H = H[1:,1:]
+            B = B[1:,1:]
+
+        else:
+            # Potential terms
+            V_centrifugal = jnp.where(self.grid.xc > 1e-10, l * (l + 1) / (2.0 * self.grid.xc**2), 0.0)
+            Vdiag = V_ext + V_H + V_xc + V_centrifugal
+
+            # Impose boundary condition at r=0
+            # Ghost cell u_-1 = (-1)^(l+1) * u_1 --> modifies first row of A and B
+            s = (-1)**(l+1)
+            A_mid = A_mid.at[0].set(s - 2)
+            B_mid = B_mid.at[0].set(10 + s)
+
+            A = (jnp.diag(A_lower, k = -1) + jnp.diag(A_mid, k = 0) + jnp.diag(A_upper, k = 1)) / self.grid.dx ** 2
+            B = (jnp.diag(B_lower, k = -1) + jnp.diag(B_mid, k = 0) + jnp.diag(B_upper, k = 1)) / 12
+
+            # constructing Hamiltonian matrix
+            H = -1/2 * A + B @ jnp.diag(Vdiag)
 
         # obtaining eigenvals / vecs from cholesky decomposition
         eigvals, eigvecs = cholesky_solve(H,B)
+
+        if(self.grid.log):
+            # Transform to u = sqrt(r/r0) y
+            eigvecs *= jnp.sqrt(self.grid.xc/self.grid.xc[0])[1:, jnp.newaxis]
+            eigvecs = jnp.insert(eigvecs,0,0.0,axis=0)
 
         # Normalise eigenvectors
         norm_factors = jnp.sqrt(jnp.sum(self.compute_normalised_densities(eigvecs) * self.grid.vol[:, jnp.newaxis], axis=0))

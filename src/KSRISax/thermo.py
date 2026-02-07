@@ -5,16 +5,18 @@ from KSRISax.poisson import PoissonSolver
 from KSRISax.reign import KohnShamSolver
 from KSRISax.potentials import CoulombPotential, LDA_exchange
 from KSRISax.SCF import SelfConsistentFieldSolver
-from KSRISax.grid import Grid
+from KSRISax.grid import LogarithmicGrid, LinearGrid
 from FDint_JAX import fermi_dirac_integral_three_half
 
 
 class Thermodynamics(eqx.Module):   
     N: float = eqx.field(static=True)
+    rmin: float = eqx.field(static=True, default=1e-2)
     Nr: int = eqx.field(static=True,default=500)
     SCF_max_iterations: int = eqx.field(static=True, default=10)
     SCF_convergence_threshold: float = eqx.field(static=True, default=1e-4)
     SCF_L_max: int = eqx.field(static=True, default=0)
+    SCF_damping: float = eqx.field(static=True, default=0.99)
 
     def __call__(self, V, T, n_initial):
         """
@@ -28,7 +30,7 @@ class Thermodynamics(eqx.Module):
         """
         # Set up
         R = (3*V/(4*jnp.pi))**(1/3)
-        grid = Grid.create(0.0, R, self.Nr)
+        grid = LogarithmicGrid.create(self.rmin, R, self.Nr)
 
         KSS = KohnShamSolver(grid=grid)
         PS = PoissonSolver(grid=grid)
@@ -41,7 +43,9 @@ class Thermodynamics(eqx.Module):
             ExchangeCorrelationPotential=lambda n, g: LDA_exchange(n, g),
             max_iterations=self.SCF_max_iterations,
             convergence_threshold=self.SCF_convergence_threshold,
-            L_max=self.SCF_L_max)
+            L_max=self.SCF_L_max,
+            FPI_damping=self.SCF_damping,
+            verbose=True)
 
         # Run SCF to get energies, degeneracies, and chemical potential
         n_SCF, scf_result = SCFS(self.N, T, n_initial)

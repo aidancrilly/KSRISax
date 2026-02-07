@@ -15,7 +15,7 @@ class SelfConsistentFieldSolver(eqx.Module):
     convergence_threshold: float = eqx.field(static=True)
     L_max: int = eqx.field(static=True, default=0)
     FPI_damping: float = eqx.field(static=True, default=0.95)
-    verbose: bool = True
+    verbose: bool = False
 
     def scf_iteration(self, n, args):
         V_ext = self.ExternalPotential(self.grid)
