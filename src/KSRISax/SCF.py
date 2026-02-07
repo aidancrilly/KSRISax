@@ -14,10 +14,13 @@ class SelfConsistentFieldSolver(eqx.Module):
     max_iterations: int = eqx.field(static=True)
     convergence_threshold: float = eqx.field(static=True)
     L_max: int = eqx.field(static=True, default=0)
+    FPI_damping: float = eqx.field(static=True, default=0.95)
+    verbose: bool = True
 
     def scf_iteration(self, n, args):
         V_ext = self.ExternalPotential(self.grid)
-        V_H = self.PoissonSolver.solve(n, V_gauge = 0.0)
+        V_H = self.PoissonSolver.solve(n)
+        V_H += -V_ext[-1]-V_H[-1]
         V_xc = self.ExchangeCorrelationPotential(n, self.grid)
 
         eigvals = []
@@ -42,7 +45,7 @@ class SelfConsistentFieldSolver(eqx.Module):
 
         # Calculate new density
         # Bound state contribution
-        n_new = jnp.sum(((eigvecs / self.grid.xc[:, jnp.newaxis])**2) * occ['state_occ'][jnp.newaxis, :], axis=1)
+        n_new = jnp.sum(self.KohnShamSolver.compute_normalised_densities(eigvecs) * occ['state_occ'][jnp.newaxis, :], axis=1)
         # Free state contribution (uniform)
         n_new += occ['free_occ'] / V_tot
 
@@ -51,15 +54,20 @@ class SelfConsistentFieldSolver(eqx.Module):
 
         aux = {
             'eigvals': eigvals,
+            'eigvecs': eigvecs,
             'mu': mu,
             'occ': occ
         }
+
+        if self.verbose:
+            jax.debug.print('{E}', E = jnp.sum(eigvals * occ['state_occ']))
+            jax.debug.print('{MSE}', MSE = jnp.mean((n_new-n)**2))
 
         return n_new, aux
     
     def __call__(self, N, T, n_initial):
 
-        solver = opt.Newton(rtol=self.convergence_threshold, atol=1e-8, norm = opt.max_norm)
+        solver = opt.FixedPointIteration(rtol=self.convergence_threshold, atol=1e-8, norm = opt.max_norm, damp = self.FPI_damping)
         fp = opt.fixed_point(fn=self.scf_iteration, solver = solver, y0 = n_initial, args = {'N' : N, 'T' : T}, max_steps = self.max_iterations, has_aux=True, throw = False)
 
         n_final = fp.value

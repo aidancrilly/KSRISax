@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import equinox as eqx
 from KSRISax.poisson import PoissonSolver
 from KSRISax.reign import KohnShamSolver
-from KSRISax.potentials import CoulombPotential
+from KSRISax.potentials import CoulombPotential, LDA_exchange
 from KSRISax.SCF import SelfConsistentFieldSolver
 from KSRISax.grid import Grid
 from FDint_JAX import fermi_dirac_integral_three_half
@@ -14,6 +14,7 @@ class Thermodynamics(eqx.Module):
     Nr: int = eqx.field(static=True,default=500)
     SCF_max_iterations: int = eqx.field(static=True, default=10)
     SCF_convergence_threshold: float = eqx.field(static=True, default=1e-4)
+    SCF_L_max: int = eqx.field(static=True, default=0)
 
     def __call__(self, V, T, n_initial):
         """
@@ -37,9 +38,10 @@ class Thermodynamics(eqx.Module):
             KohnShamSolver=KSS,
             PoissonSolver=PS,
             ExternalPotential=lambda g: CoulombPotential(g, Z=self.N),
-            ExchangeCorrelationPotential=lambda n, g: jnp.zeros_like(g.xc),
+            ExchangeCorrelationPotential=lambda n, g: LDA_exchange(n, g),
             max_iterations=self.SCF_max_iterations,
-            convergence_threshold=self.SCF_convergence_threshold)
+            convergence_threshold=self.SCF_convergence_threshold,
+            L_max=self.SCF_L_max)
 
         # Run SCF to get energies, degeneracies, and chemical potential
         n_SCF, scf_result = SCFS(self.N, T, n_initial)
@@ -64,6 +66,7 @@ class Thermodynamics(eqx.Module):
             'U_total': U,
             'mu': mu,
             'energies': energies,
+            'u_nl': scf_result['eigvecs'],
             'occupancies': occupancies
         }
 

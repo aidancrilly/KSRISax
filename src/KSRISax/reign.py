@@ -119,7 +119,36 @@ class KohnShamSolver(eqx.Module):
         eigvals, eigvecs = cholesky_solve(H,B)
 
         # Normalise eigenvectors
-        norm_factors = jnp.sqrt(jnp.sum((eigvecs**2) * self.grid.vol[:,jnp.newaxis], axis=0))
+        norm_factors = jnp.sqrt(jnp.sum(self.compute_normalised_densities(eigvecs) * self.grid.vol[:, jnp.newaxis], axis=0))
         eigvecs = eigvecs / norm_factors
 
         return eigvals, eigvecs
+
+    def compute_normalised_density(self,u):
+        # Compute 4pi/V \int (u/r)^2 r^2 dr for each radial volume
+        # Form linear interpolator of u(r) based on cell centred u
+        # Compute finite volume integrals
+
+        # Set up ghost cells
+        r_ghost = jnp.concatenate([jnp.zeros(1),self.grid.xc,self.grid.xb[-1:]])
+        u_ghost = jnp.concatenate([jnp.zeros(1),u,u[-1:]])
+
+        # Integral of the form (a+b*r)^2 dr 
+        a = u_ghost[1:-1] - (u_ghost[1:-1]-u_ghost[:-2])*r_ghost[1:-1]/(r_ghost[1:-1]-r_ghost[:-2])
+        b = (u_ghost[1:-1]-u_ghost[:-2])/(r_ghost[1:-1]-r_ghost[:-2])
+
+        n_lower = a**2*(self.grid.xc-self.grid.xb[:-1]) + a*b*(self.grid.xc**2-self.grid.xb[:-1]**2) + b**2*(self.grid.xc**3-self.grid.xb[:-1]**3)/3
+
+        a = u_ghost[1:-1] - (u_ghost[2:]-u_ghost[1:-1])*r_ghost[1:-1]/(r_ghost[2:]-r_ghost[1:-1])
+        b = (u_ghost[2:]-u_ghost[1:-1])/(r_ghost[2:]-r_ghost[1:-1])
+
+        n_upper = a**2*(self.grid.xb[1:]-self.grid.xc) + a*b*(self.grid.xb[1:]**2-self.grid.xc**2) + b**2*(self.grid.xb[1:]**3-self.grid.xc**3)/3
+
+        n = n_lower+n_upper
+
+        n *= 4*jnp.pi/self.grid.vol
+
+        return n
+    
+    def compute_normalised_densities(self,eigvecs):
+        return jax.vmap(self.compute_normalised_density,in_axes=1,out_axes=1)(eigvecs)
