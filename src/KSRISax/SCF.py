@@ -4,13 +4,14 @@ import jax
 import jax.numpy as jnp
 from typing import Callable
 from KSRISax.chem import *
+from KSRISax.potentials import ExchangeCorrelation
 
 class SelfConsistentFieldSolver(eqx.Module):
     grid: eqx.Module
     KohnShamSolver: eqx.Module
     PoissonSolver: eqx.Module
     ExternalPotential: Callable
-    ExchangeCorrelationPotential: Callable
+    XC: ExchangeCorrelation
     max_iterations: int = eqx.field(static=True)
     convergence_threshold: float = eqx.field(static=True)
     L_max: int = eqx.field(static=True, default=0)
@@ -21,7 +22,7 @@ class SelfConsistentFieldSolver(eqx.Module):
         V_ext = self.ExternalPotential(self.grid)
         V_H = self.PoissonSolver.solve(n)
         V_H += -V_ext[-1]-V_H[-1]
-        V_xc = self.ExchangeCorrelationPotential(n, self.grid)
+        V_xc = self.XC.potential(n, self.grid)
 
         eigvals = []
         eigvecs = []
@@ -55,6 +56,7 @@ class SelfConsistentFieldSolver(eqx.Module):
         aux = {
             'eigvals': eigvals,
             'eigvecs': eigvecs,
+            'V_H' : V_H,
             'mu': mu,
             'occ': occ
         }
@@ -71,4 +73,24 @@ class SelfConsistentFieldSolver(eqx.Module):
         fp = opt.fixed_point(fn=self.scf_iteration, solver = solver, y0 = n_initial, args = {'N' : N, 'T' : T}, max_steps = self.max_iterations, has_aux=True, throw = False)
 
         n_final = fp.value
-        return n_final, fp.aux
+
+        # Compute other energy terms
+        scf_result = fp.aux
+
+        energies = scf_result['eigvals']
+        occupancies = scf_result['occ']['state_occ']
+        U_KS = jnp.sum(energies * occupancies)
+
+        U_H = 0.5 * jnp.sum(scf_result['V_H'] * n_final * self.grid.vol)
+
+        U_xc = jnp.sum(self.XC.energy(n_final, self.grid) * n_final * self.grid.vol)
+
+        v_xc_integral = jnp.sum(self.XC.potential(n_final, self.grid) * n_final * self.grid.vol)
+
+        U_bound = U_KS - U_H + U_xc - v_xc_integral
+
+        jax.debug.print('{U_H} {U_xc} {v_xc_integral}',U_H=U_H, U_xc=U_xc, v_xc_integral=v_xc_integral)
+
+        scf_result = scf_result | {'U_bound' : U_bound}
+
+        return n_final, scf_result

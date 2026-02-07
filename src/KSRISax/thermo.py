@@ -40,7 +40,7 @@ class Thermodynamics(eqx.Module):
             KohnShamSolver=KSS,
             PoissonSolver=PS,
             ExternalPotential=lambda g: CoulombPotential(g, Z=self.N),
-            ExchangeCorrelationPotential=lambda n, g: LDA_exchange(n, g),
+            XC=LDA_exchange(),
             max_iterations=self.SCF_max_iterations,
             convergence_threshold=self.SCF_convergence_threshold,
             L_max=self.SCF_L_max,
@@ -51,9 +51,7 @@ class Thermodynamics(eqx.Module):
         n_SCF, scf_result = SCFS(self.N, T, n_initial)
 
         # bound internal energy
-        energies = scf_result['eigvals']
-        occupancies = scf_result['occ']['state_occ']
-        U_bound = jnp.sum(energies * occupancies)
+        U_bound = scf_result['U_bound']
         
         # free internal energy
         mu = scf_result['mu']
@@ -69,9 +67,9 @@ class Thermodynamics(eqx.Module):
             'U_free': U_free,
             'U_total': U,
             'mu': mu,
-            'energies': energies,
+            'energies': scf_result['eigvals'],
             'u_nl': scf_result['eigvecs'],
-            'occupancies': occupancies
+            'occupancies': scf_result['occ']['state_occ']
         }
 
         return thermo_dict
