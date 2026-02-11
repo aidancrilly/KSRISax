@@ -72,9 +72,8 @@ class Thermodynamics(eqx.Module):
         F = U - T*S
 
         # Pressure
-        # Not sure I believe this expression
-        W_ext = 0.0
-        P = (2.0*F-W_ext)/(3.0*V)
+        # To be implemented
+        P = 0.0
 
         return U, (P, F, Zbar, S, mu)
     
