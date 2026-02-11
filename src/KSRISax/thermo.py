@@ -48,16 +48,12 @@ class Thermodynamics(eqx.Module):
     
     def _calc_EoS(self, V, T, n_initial):
         scf_result = self._solve_SCF(V, T, n_initial)
-
-        # bound internal energy
-        U_bound = scf_result['U_bound']
-        
-        # free internal energy
         mu = scf_result['mu']
-        gamma_factor = 3 * jnp.sqrt(jnp.pi) / 4
-        U_free = ((jnp.sqrt(2) * V * T**(5/2)) / (jnp.pi**2)) * gamma_factor * fermi_dirac_integral_three_half(mu/T)
 
-        # total internal energy
+
+        # Internal energy
+        U_bound = scf_result['U_bound']
+        U_free = ((jnp.sqrt(2) * V * T**(5/2)) / (jnp.pi**2)) * (3 * jnp.sqrt(jnp.pi) / 4) * fermi_dirac_integral_three_half(mu/T)
         U = U_bound + U_free
 
         # Number of free electrons
