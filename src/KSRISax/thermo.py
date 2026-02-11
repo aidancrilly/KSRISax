@@ -6,6 +6,7 @@ from KSRISax.reign import KohnShamSolver
 from KSRISax.potentials import CoulombPotential, LDA_exchange
 from KSRISax.SCF import SelfConsistentFieldSolver
 from KSRISax.grid import LogarithmicGrid, LinearGrid
+from KSRISax.chem import free_entropy_integral, bound_entropy_calc
 from FDint_JAX import fermi_dirac_integral_three_half
 
 
@@ -18,16 +19,7 @@ class Thermodynamics(eqx.Module):
     SCF_L_max: int = eqx.field(static=True, default=0)
     SCF_damping: float = eqx.field(static=True, default=0.99)
 
-    def __call__(self, V, T, n_initial):
-        """
-        U = U_bound + U_free
-
-        U_bound = sum over all bounded n,l states (E * degeneracy factor * occupancy)
-
-        U_free = int_0^+inf (density of state * E * occupancy)
-            = sqrt(2) * V * T^5/2 / pi^2 * F_3/2 (mu/T)
-
-        """
+    def _solve_SCF(self, V, T, n_initial):
         # Set up
         R = (3*V/(4*jnp.pi))**(1/3)
         grid = LogarithmicGrid.create(self.rmin, R, self.Nr)
@@ -50,6 +42,13 @@ class Thermodynamics(eqx.Module):
         # Run SCF to get energies, degeneracies, and chemical potential
         n_SCF, scf_result = SCFS(self.N, T, n_initial)
 
+        scf_result['n_SCF'] = n_SCF
+
+        return scf_result
+    
+    def _calc_EoS(self, V, T, n_initial):
+        scf_result = self._solve_SCF(V, T, n_initial)
+
         # bound internal energy
         U_bound = scf_result['U_bound']
         
@@ -61,15 +60,36 @@ class Thermodynamics(eqx.Module):
         # total internal energy
         U = U_bound + U_free
 
+        # Number of free electrons
+        Zbar = scf_result['occ']['free_occ']
+
+        # Entropy
+        S_bound = bound_entropy_calc(scf_result['eigvals'], scf_result['degen'], mu, T)
+        S_free = self.N*V/(jnp.sqrt(2)*jnp.pi**2)*free_entropy_integral(mu,T)
+        S = S_bound + S_free
+
+        # Helmholtz free energy
+        F = U - T*S
+
+        # Pressure
+        # Not sure I believe this expression
+        W_ext = 0.0
+        P = (2.0*F-W_ext)/(3.0*V)
+
+        return U, (P, F, Zbar, S, mu)
+    
+    def __call__(self, V, T, n_initial):
+
+        (U, Cv), (P, F, Zbar, S, mu) = jax.value_and_grad(self._calc_EoS,argnums=1,has_aux=True)(V, T, n_initial)
+
         thermo_dict = {
-            'n_SCF': n_SCF,
-            'U_bound': U_bound,
-            'U_free': U_free,
-            'U_total': U,
+            'U': U,
+            'Cv': Cv,
+            'P' : P,
+            'F' : F,
+            'Zbar' : Zbar,
+            'S' : S,
             'mu': mu,
-            'energies': scf_result['eigvals'],
-            'u_nl': scf_result['eigvecs'],
-            'occupancies': scf_result['occ']['state_occ']
         }
 
         return thermo_dict

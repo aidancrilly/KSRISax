@@ -2,6 +2,7 @@
 import jax.numpy as jnp
 import optimistix as opt
 import jax
+from KSRISax.quad import quad
 from FDint_JAX import fermi_dirac_integral_half
 
 def fermi_dirac_dist(energy, mu, T):
@@ -48,3 +49,17 @@ def find_chemical_potential_w_KSstates(energies, degeneracies, V, N, T, tol=1e-6
     opt_result = opt.root_find(root_func, op, y0 = mu_guess, options={'lower': mu_lower, 'upper': mu_upper}, args=None, has_aux=True)
     
     return opt_result.value, opt_result.aux
+
+def free_entropy_integral(mu,T):
+    def _integrand(x,params):
+        E = jnp.tan(jnp.pi*x/4.0)
+        f = fermi_dirac_dist(E,params['mu'],params['T'])
+        return jnp.sqrt(E)*(f*jnp.log(f)+(1-f)*jnp.log(1-f))
+    return quad(_integrand,0.0,0.99,{'mu' : mu, 'T' : T})
+
+def bound_entropy_calc(energies, degeneracies, mu, T):
+    by_state_f = fermi_dirac_dist(energies, mu, T)
+    # Apply bound mask
+    by_state_f = by_state_f * bound_mask(energies)
+    return -jnp.sum(degeneracies*(by_state_f*jnp.log(by_state_f)+(1-by_state_f)*jnp.log(1-by_state_f)))
+    

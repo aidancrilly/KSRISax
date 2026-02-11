@@ -58,7 +58,8 @@ class SelfConsistentFieldSolver(eqx.Module):
             'eigvecs': eigvecs,
             'V_H' : V_H,
             'mu': mu,
-            'occ': occ
+            'occ': occ,
+            'degen' : degen,
         }
 
         if self.verbose:
@@ -91,6 +92,6 @@ class SelfConsistentFieldSolver(eqx.Module):
 
         jax.debug.print('{U_H} {U_xc} {v_xc_integral}',U_H=U_H, U_xc=U_xc, v_xc_integral=v_xc_integral)
 
-        scf_result = scf_result | {'U_bound' : U_bound}
+        scf_result = scf_result | {'U_bound' : U_bound, 'U_KS' : U_KS, 'U_H' : U_H}
 
         return n_final, scf_result
