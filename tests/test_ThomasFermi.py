@@ -1,6 +1,9 @@
 from KSRISax.ThomasFermi import ThomasFermiSolver
 import numpy as np
 import scipy.constants as sc
+import jax
+
+jax.config.update('jax_enable_x64', True)
 
 def test_ThomasFermiSolver():
 
