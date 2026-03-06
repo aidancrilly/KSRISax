@@ -92,5 +92,5 @@ class ThomasFermiSolver(eqx.Module):
         P = (2.0 / 9.0) * (N / V) * T * (b**3 / alpha) * fermi_dirac_integral_three_half(beta[-1] / b) / 0.75 #/ (3 * np.sqrt(np.pi) / 4)
         U = 1.5 * P + 0.5 * Epot / V
         mu = T * beta[-1]
-        return {'U' : U, 'P' : P, 'mu' : mu}
+        return {'U' : U, 'P' : P, 'mu' : mu, 'beta(0)' : beta[0]}
 
