@@ -1,6 +1,6 @@
 from KSRISax.poisson import PoissonSolver
 from KSRISax.reign import KohnShamSolver
-from KSRISax.potentials import CoulombPotential
+from KSRISax.potentials import CoulombPotential, ZeroXC
 from KSRISax.SCF import SelfConsistentFieldSolver
 from KSRISax.grid import *
 import jax.numpy as jnp
@@ -19,7 +19,7 @@ def test_SCF_iteration():
         KohnShamSolver=KSS,
         PoissonSolver=PS,
         ExternalPotential=lambda g: CoulombPotential(g, Z=1.0),
-        ExchangeCorrelationPotential=lambda n, g: jnp.zeros_like(g.xc),
+        XC=ZeroXC(),
         max_iterations=50,
         convergence_threshold=1e-2)
     
@@ -47,7 +47,7 @@ def test_SCF_iteration():
         KohnShamSolver=KSS,
         PoissonSolver=PS,
         ExternalPotential=lambda g: CoulombPotential(g, Z=1.0),
-        ExchangeCorrelationPotential=lambda n, g: jnp.zeros_like(g.xc),
+        XC=ZeroXC(),
         max_iterations=50,
         convergence_threshold=1e-2)
     
