@@ -22,7 +22,7 @@ def test_SCF_iteration():
         XC=ZeroXC(),
         max_iterations=50,
         convergence_threshold=1e-2)
-    
+
     n_initial = jnp.zeros_like(grid.xc)
     n_final, aux = SCFS.scf_iteration(n_initial,args={'N':1,'T':0.01})
 
@@ -50,7 +50,7 @@ def test_SCF_iteration():
         XC=ZeroXC(),
         max_iterations=50,
         convergence_threshold=1e-2)
-    
+
     n_initial = jnp.zeros_like(grid.xc)
     n_final, aux = SCFS.scf_iteration(n_initial,args={'N':1,'T':0.01})
 

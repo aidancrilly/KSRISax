@@ -1,7 +1,4 @@
 import equinox as eqx
-import optimistix as opt
-import jax
-import jax.numpy as jnp
 import numpy as np
 from scipy.integrate import solve_bvp
 from FDint_JAX import fermi_dirac_integral_half, fermi_dirac_integral_three_half
@@ -75,7 +72,7 @@ class ThomasFermiSolver(eqx.Module):
             raise RuntimeError(f"solve_bvp failed: {sol.message}")
 
         return sol.sol
-    
+
     def c_FMT(self, T):
         return np.sqrt(np.sqrt(np.pi) * thermal_deBroglie_wavelength(T) / 8.0)
 

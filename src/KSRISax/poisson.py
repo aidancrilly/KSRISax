@@ -1,5 +1,4 @@
 import jax
-import jax.numpy as jnp
 import lineax as lx
 import equinox as eqx
 from KSRISax.grid import Grid

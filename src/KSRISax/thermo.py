@@ -1,16 +1,15 @@
-import jax
 import jax.numpy as jnp
 import equinox as eqx
 from KSRISax.poisson import PoissonSolver
 from KSRISax.reign import KohnShamSolver
 from KSRISax.potentials import CoulombPotential, LDA_exchange
 from KSRISax.SCF import SelfConsistentFieldSolver
-from KSRISax.grid import LogarithmicGrid, LinearGrid
+from KSRISax.grid import LogarithmicGrid
 from KSRISax.chem import free_entropy_integral, bound_entropy_calc
 from FDint_JAX import fermi_dirac_integral_three_half
 
 
-class Thermodynamics(eqx.Module):   
+class Thermodynamics(eqx.Module):
     N: float = eqx.field(static=True)
     rmin: float = eqx.field(static=True, default=1e-2)
     Nr: int = eqx.field(static=True,default=500)
@@ -45,7 +44,7 @@ class Thermodynamics(eqx.Module):
         scf_result['n_SCF'] = n_SCF
 
         return scf_result
-    
+
     def _calc_EoS(self, V, T, n_initial):
         scf_result = self._solve_SCF(V, T, n_initial)
         mu = scf_result['mu']
@@ -71,7 +70,7 @@ class Thermodynamics(eqx.Module):
         P = scf_result['P_KS'] + P_free
 
         return U, (P, F, Z, S, mu)
-    
+
     def nograd_call(self, V, T, n_initial):
 
         U, (P, F, Z, S, mu) = eqx.filter_jit(self._calc_EoS)(V, T, n_initial)

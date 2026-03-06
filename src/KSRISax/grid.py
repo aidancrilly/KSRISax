@@ -1,4 +1,3 @@
-import jax
 import jax.numpy as jnp
 import equinox as eqx
 
@@ -32,4 +31,4 @@ class LogarithmicGrid(Grid):
         vol = 4.0 / 3.0 * jnp.pi * (xb[1:]**3 - xb[:-1]**3)
         dx = xc[1:]-xc[:-1]
         dx = jnp.concatenate([dx[:1],dx,dx[-1:]])
-        return LogarithmicGrid(xb=xb, xc=xc, vol=vol, Nx=num_points, dx=dx, log=True, log_spacing=log_spacing) 
+        return LogarithmicGrid(xb=xb, xc=xc, vol=vol, Nx=num_points, dx=dx, log=True, log_spacing=log_spacing)

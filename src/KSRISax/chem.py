@@ -1,7 +1,6 @@
 
 import jax.numpy as jnp
 import optimistix as opt
-import jax
 from KSRISax.quad import quad
 from FDint_JAX import fermi_dirac_integral_half
 
@@ -42,7 +41,7 @@ def find_chemical_potential_w_freecontinuum(energies, degeneracies, V, N, T, tol
     mu_guess = mu_lower + T
     op = opt.Bisection(rtol=tol, atol=tol)
     opt_result = opt.root_find(root_func, op, y0 = mu_guess, options={'lower': mu_lower, 'upper': mu_upper}, args=None, has_aux=True)
-    
+
     return opt_result.value, opt_result.aux
 
 def find_chemical_potential_w_KSstates(energies, degeneracies, V, N, T, tol=1e-6, max_iter=100):
@@ -58,7 +57,7 @@ def find_chemical_potential_w_KSstates(energies, degeneracies, V, N, T, tol=1e-6
     mu_guess = energies[jnp.argmin(jnp.abs(jnp.cumsum(degeneracies) - N))]
     op = opt.Bisection(rtol=tol, atol=tol)
     opt_result = opt.root_find(root_func, op, y0 = mu_guess, options={'lower': mu_lower, 'upper': mu_upper}, args=None, has_aux=True)
-    
+
     return opt_result.value, opt_result.aux
 
 def free_entropy_integral(mu,T):
@@ -73,4 +72,4 @@ def bound_entropy_calc(energies, degeneracies, mu, T):
     # Apply bound mask
     by_state_f = by_state_f * bound_mask(energies)
     return -jnp.sum(degeneracies*(by_state_f*jnp.log(by_state_f)+(1-by_state_f)*jnp.log(1-by_state_f)))
-    
+
