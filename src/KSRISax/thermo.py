@@ -50,14 +50,13 @@ class Thermodynamics(eqx.Module):
         scf_result = self._solve_SCF(V, T, n_initial)
         mu = scf_result['mu']
 
-
         # Internal energy
         U_bound = scf_result['U_bound']
         U_free = ((jnp.sqrt(2) * V * T**(5/2)) / (jnp.pi**2)) * (3 * jnp.sqrt(jnp.pi) / 4) * fermi_dirac_integral_three_half(mu/T)
         U = U_bound + U_free
 
         # Number of free electrons
-        Zbar = scf_result['occ']['free_occ']
+        Z = scf_result['occ']['free_occ']
 
         # Entropy
         S_bound = bound_entropy_calc(scf_result['eigvals'], scf_result['degen'], mu, T)
@@ -68,21 +67,37 @@ class Thermodynamics(eqx.Module):
         F = U - T*S
 
         # Pressure
-        # To be implemented
-        P = 0.0
+        P_free = (2/3) * U_free
+        P = scf_result['P_KS'] + P_free
 
-        return U, (P, F, Zbar, S, mu)
+        return U, (P, F, Z, S, mu)
     
-    def __call__(self, V, T, n_initial):
+    def nograd_call(self, V, T, n_initial):
 
-        (U, Cv), (P, F, Zbar, S, mu) = jax.value_and_grad(self._calc_EoS,argnums=1,has_aux=True)(V, T, n_initial)
+        U, (P, F, Z, S, mu) = eqx.filter_jit(self._calc_EoS)(V, T, n_initial)
+
+        thermo_dict = {
+            'U': U,
+            'Cv': None,
+            'P' : P,
+            'F' : F,
+            'Z' : Z,
+            'S' : S,
+            'mu': mu,
+        }
+
+        return thermo_dict
+
+    def grad_call(self, V, T, n_initial):
+
+        (U, Cv), (P, F, Z, S, mu) = eqx.filter_jit(eqx.value_and_grad(self._calc_EoS,argnums=1,has_aux=True))(V, T, n_initial)
 
         thermo_dict = {
             'U': U,
             'Cv': Cv,
             'P' : P,
             'F' : F,
-            'Zbar' : Zbar,
+            'Z' : Z,
             'S' : S,
             'mu': mu,
         }

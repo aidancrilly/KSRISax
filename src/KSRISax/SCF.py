@@ -63,35 +63,47 @@ class SelfConsistentFieldSolver(eqx.Module):
         }
 
         if self.verbose:
-            jax.debug.print('{E}', E = jnp.sum(eigvals * occ['state_occ']))
-            jax.debug.print('{MSE}', MSE = jnp.mean((n_new-n)**2))
+            jax.debug.print('Mean/max norm in n: {MSE}/{MaxSE}', MSE = jnp.mean((n_new-n)**2), MaxSE = jnp.amax((n_new-n)**2))
 
         return n_new, aux
     
     def __call__(self, N, T, n_initial):
 
-        solver = opt.FixedPointIteration(rtol=self.convergence_threshold, atol=1e-8, norm = opt.max_norm, damp = self.FPI_damping)
+        solver = opt.AndersonAcceleration(rtol=self.convergence_threshold, atol=1e-8, norm = opt.max_norm, damp = self.FPI_damping)
         fp = opt.fixed_point(fn=self.scf_iteration, solver = solver, y0 = n_initial, args = {'N' : N, 'T' : T}, max_steps = self.max_iterations, has_aux=True, throw = False)
 
         n_final = fp.value
 
-        # Compute other energy terms
-        scf_result = fp.aux
+        scf_result = {
+            'eigvals': fp.aux['eigvals'],
+            'mu': fp.aux['mu'],
+            'occ': fp.aux['occ'],
+            'degen' : fp.aux['degen'],
+        }
 
+        # Compute energy terms
+        
         energies = scf_result['eigvals']
         occupancies = scf_result['occ']['state_occ']
+        V_H = fp.aux['V_H']
+
         U_KS = jnp.sum(energies * occupancies)
-
-        U_H = 0.5 * jnp.sum(scf_result['V_H'] * n_final * self.grid.vol)
-
+        U_H = 0.5 * jnp.sum(V_H * n_final * self.grid.vol)
         U_xc = jnp.sum(self.XC.energy(n_final, self.grid) * n_final * self.grid.vol)
-
         v_xc_integral = jnp.sum(self.XC.potential(n_final, self.grid) * n_final * self.grid.vol)
-
         U_bound = U_KS - U_H + U_xc - v_xc_integral
 
-        jax.debug.print('{U_H} {U_xc} {v_xc_integral}',U_H=U_H, U_xc=U_xc, v_xc_integral=v_xc_integral)
+        # Based on Liberman - Virial Theorem in SCF calculations
+        # See equation (5) of https://journals.aps.org/prb/pdf/10.1103/PhysRevB.3.2081
+        eigvecs = fp.aux['eigvecs']
+        # Currently exclude phi*(d^2phi/dr^2) as phi(R) = 0
+        dphidr_at_R = -eigvecs[-1,:]/(self.grid.xb[-1]-self.grid.xc[-1])
+        A_sphere = 4*jnp.pi*self.grid.xb[-1]**2
+        V_sphere = 4*jnp.pi/3.0*self.grid.xb[-1]**3
+        P_KS = A_sphere*jnp.sum(occupancies*(dphidr_at_R**2))/6.0
+        P_xc = (v_xc_integral-U_xc)/V_sphere
+        P_KS = P_KS + P_xc
 
-        scf_result = scf_result | {'U_bound' : U_bound, 'U_KS' : U_KS, 'U_H' : U_H}
+        scf_result = scf_result | {'U_bound' : U_bound, 'P_KS' : P_KS}
 
         return n_final, scf_result
