@@ -6,3 +6,6 @@ data
 *egg-info
 
 _*.py
+
+.venv
+.pytest_cache

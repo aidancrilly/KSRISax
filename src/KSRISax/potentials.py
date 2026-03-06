@@ -13,10 +13,15 @@ class ExchangeCorrelation(eqx.Module):
     @abc.abstractmethod
     def energy(self, n, grid):
         raise NotImplementedError
-    
+
     def potential(self, n, grid):
         v_xc = self.energy(n,grid) + n * jax.vmap(jax.grad(self.energy,argnums=0),in_axes=[0,None])(n, grid)
         return v_xc
+
+class ZeroXC(ExchangeCorrelation):
+
+    def energy(self, n, grid):
+        return jnp.zeros_like(n)
 
 class LDA_exchange(ExchangeCorrelation):
 

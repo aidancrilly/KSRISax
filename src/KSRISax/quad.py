@@ -19,7 +19,7 @@ def quad(func, a, b, parameters):
     """
 
     result = GLQ_adaptive_integral(func, a, b, parameters)
-    
+
     return result
 
 def quad_fwd(func, a, b, parameters):
@@ -42,7 +42,7 @@ def quad_bwd(func, aux, grad):
     return grad_a, grad_b, grad_args
 
 quad.defvjp(quad_fwd, quad_bwd)
-    
+
 ###################################################################################################################################
 # Gauss-Legendre Quadrature                                                                                                       #
 # A. Crilly (Imperial) converted into Python/JAX                                                                                  #
@@ -147,8 +147,8 @@ def GLQ_adaptive_integral(integrand_function, lower_bound, upper_bound, paramete
     partial_f = Partial(integrand_function)
 
     input_dict = {'integral' : 0.0, 'lower_bound' : lower_bound, 'upper_bound' : upper_bound,
-             'integrand_function' : partial_f, 'parameters' : parameters, 
-             'relative_tolerance' : relative_tolerance, 'absolute_tolerance' : absolute_tolerance, 
+             'integrand_function' : partial_f, 'parameters' : parameters,
+             'relative_tolerance' : relative_tolerance, 'absolute_tolerance' : absolute_tolerance,
              'new_lower_bound' : 0.0, 'new_upper_bound' : 1.0*lower_bound, 'min_bin_width': min_bin_width,
              'trans_const_1' : 0.0, 'trans_const_2' : 0.0, 'integral_1' : 0.0, 'integral_2' : 0.0}
 

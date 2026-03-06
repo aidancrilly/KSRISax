@@ -6,13 +6,13 @@ import equinox as eqx
 
 @jax.custom_jvp
 def cholesky_solve(A,B):
-    """ 
+    """
     basically a generalized eigenvalue/vec solver, for the form Ax = lambda B x
     performing cholesky decomposition, uses the eigh function
-    
+
     background:
     B = L L^T --> Ax = lambda L L^T x --> L^-1 A x = lambda L^T x = lambda y
-    y defined to be y = L^T x 
+    y defined to be y = L^T x
     L^-1 A L^-T y = A_tilde y = lambda y --> can use eigh function from jax to obtain y
     obtain x through x = L^-T y
 
@@ -21,7 +21,7 @@ def cholesky_solve(A,B):
 
     outputs:
     eigvals, eigenvecs of the original equation (in that order)
-    
+
     """
     L = jla.cholesky(B, lower=True)
 
@@ -107,7 +107,7 @@ class KohnShamSolver(eqx.Module):
             Vdiag = V_ext + V_H + V_xc
             Udiag = jnp.diag(0.5 * (l * (l + 1) + 0.25) + self.grid.xc**2 * Vdiag)
             R2 = jnp.diag(self.grid.xc**2)
-            
+
             # constructing Hamiltonian matrix
             H = -1/2 * A + B @ Udiag
             B = B @ R2
@@ -155,7 +155,7 @@ class KohnShamSolver(eqx.Module):
         r_ghost = jnp.concatenate([jnp.zeros(1),self.grid.xc,self.grid.xb[-1:]])
         u_ghost = jnp.concatenate([jnp.zeros(1),u,u[-1:]])
 
-        # Integral of the form (a+b*r)^2 dr 
+        # Integral of the form (a+b*r)^2 dr
         a = u_ghost[1:-1] - (u_ghost[1:-1]-u_ghost[:-2])*r_ghost[1:-1]/(r_ghost[1:-1]-r_ghost[:-2])
         b = (u_ghost[1:-1]-u_ghost[:-2])/(r_ghost[1:-1]-r_ghost[:-2])
 
@@ -171,6 +171,6 @@ class KohnShamSolver(eqx.Module):
         n *= 4*jnp.pi/self.grid.vol
 
         return n
-    
+
     def compute_normalised_densities(self,eigvecs):
         return jax.vmap(self.compute_normalised_density,in_axes=1,out_axes=1)(eigvecs)

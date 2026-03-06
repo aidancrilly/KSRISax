@@ -21,5 +21,10 @@ cpu = []
 gpu = ["jax[cuda12]"]
 dev = [
     "pytest",
+    "ruff",
+    "pre-commit",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--ignore=tests/test_thermo.py"

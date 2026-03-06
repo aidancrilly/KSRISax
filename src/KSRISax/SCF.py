@@ -66,7 +66,7 @@ class SelfConsistentFieldSolver(eqx.Module):
             jax.debug.print('Mean/max norm in n: {MSE}/{MaxSE}', MSE = jnp.mean((n_new-n)**2), MaxSE = jnp.amax((n_new-n)**2))
 
         return n_new, aux
-    
+
     def __call__(self, N, T, n_initial):
 
         solver = opt.AndersonAcceleration(rtol=self.convergence_threshold, atol=1e-8, norm = opt.max_norm, damp = self.FPI_damping)
@@ -82,7 +82,7 @@ class SelfConsistentFieldSolver(eqx.Module):
         }
 
         # Compute energy terms
-        
+
         energies = scf_result['eigvals']
         occupancies = scf_result['occ']['state_occ']
         V_H = fp.aux['V_H']
