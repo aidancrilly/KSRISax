@@ -10,9 +10,9 @@ from .chem import thermal_deBroglie_wavelength
 class ThomasFermiSolver(eqx.Module):
     n_bvp_points : int = 200
     nw_integral : int = 400
-    eps : float = 1e-6
+    eps : float = 1e-8
     max_nodes : int = int(2e5)
-    tol : float = 1e-3
+    tol : float = 1e-6
 
     @staticmethod
     def I(x):
