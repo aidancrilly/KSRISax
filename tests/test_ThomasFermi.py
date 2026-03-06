@@ -37,4 +37,5 @@ def test_ThomasFermiSolver():
         beta_boundary_TF = res['mu'] / T
         # Checks on solution
         assert np.isclose(beta_boundary_TF, beta_boundary_ref, rtol=1e-2)
+        assert np.isclose(res['beta(0)'], alpha_ref, rtol=1e-3)
         assert np.isclose(PV_over_kTZ_TF, PV_over_kTZ, atol=0.02)
