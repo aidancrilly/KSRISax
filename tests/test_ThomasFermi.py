@@ -31,8 +31,9 @@ def test_ThomasFermiSolver():
         PV_over_kTZ_TF = res['P'] * V / (T * N)
         beta_boundary_TF = res['mu'] / T
         # Checks on solution
+        assert np.isclose(beta_boundary_TF, beta_boundary_ref, rtol=1e-2)
         # Skip T_keV=14.660 case which does not converge to correct solution
         if np.isclose(T_keV, 14.660):
             continue
         assert np.isclose(PV_over_kTZ_TF, PV_over_kTZ, atol=0.02)
-        assert np.isclose(beta_boundary_TF, beta_boundary_ref, rtol=1e-2)
+        
