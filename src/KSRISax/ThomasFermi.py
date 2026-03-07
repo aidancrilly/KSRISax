@@ -4,7 +4,7 @@ from scipy.integrate import solve_bvp, quad
 from FDint_JAX import fermi_dirac_integral_half, fermi_dirac_integral_three_half
 from .chem import thermal_deBroglie_wavelength
 
-def integrand(x, y)
+def integrand(x, y):
     return x**1.5/(np.exp(x-y)+1)
 
 class ThomasFermiSolver(eqx.Module):
