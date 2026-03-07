@@ -94,16 +94,25 @@ class ThomasFermiSolver(eqx.Module):
         # Chemical potential
         mu = T * (beta[-1] / b)
 
-        # Potential energy: Epot = ∫ 4πr² n(r) V(r) dr
-        # Using s = w²/2, n(r) = 2/λ³ I(β/s), V(r) = Tβ/s - μ
-        # Transforms to: Epot = (2πc³/λ³) ∫ w⁵ I(2β/w²)(T·2β/w² - μ) dw
+        # Potential energy: Epot = -(1/2) U_nV + (1/2) UeN
+        # where U_nV = ∫ 4πr² n(r) V(r) dr = 2Uee + UeN
+        # and   UeN  = ∫ 4πr² n(r) (N/r) dr
+        # Using s = w²/2, n(r) = 2/λ³ I(β/s), V(r) = Tβ/s - μ, N/r = 2N/(cw²)
         c = self.c_FMT(T)
         lam = thermal_deBroglie_wavelength(T)
         arg = 2.0 * beta / (w_integral**2)
         I_vals = self.I(arg)
+
+        # U_nV = (2πc³/λ³) ∫ w⁵ I(2β/w²)(T·2β/w² - μ) dw
         V_r = T * arg - mu
-        integrand = w_integral**5 * I_vals * V_r
-        Epot = (2.0 * np.pi * c**3 / lam**3) * np.trapezoid(integrand, w_integral)
+        integrand_nV = w_integral**5 * I_vals * V_r
+        U_nV = (2.0 * np.pi * c**3 / lam**3) * np.trapezoid(integrand_nV, w_integral)
+
+        # UeN = (4πNc²/λ³) ∫ w³ I(2β/w²) dw
+        integrand_eN = w_integral**3 * I_vals
+        UeN = (4.0 * np.pi * N * c**2 / lam**3) * np.trapezoid(integrand_eN, w_integral)
+
+        Epot = -0.5 * U_nV + 0.5 * UeN
 
         P = (2.0 / 9.0) * (N / V) * T * (b**3 / alpha) * fermi_dirac_integral_three_half(beta[-1] / b) * gamma5h
         U = 1.5 * P + 0.5 * Epot / V
