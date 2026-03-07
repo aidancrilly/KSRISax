@@ -90,9 +90,22 @@ class ThomasFermiSolver(eqx.Module):
 
         w_integral = np.linspace(self.eps,wb,self.nw_integral)
         beta = beta_sol(w_integral)[0]
-        Epot = 0.0
+
+        # Chemical potential
+        mu = T * (beta[-1] / b)
+
+        # Potential energy: Epot = ∫ 4πr² n(r) V(r) dr
+        # Using s = w²/2, n(r) = 2/λ³ I(β/s), V(r) = Tβ/s - μ
+        # Transforms to: Epot = (2πc³/λ³) ∫ w⁵ I(2β/w²)(T·2β/w² - μ) dw
+        c = self.c_FMT(T)
+        lam = thermal_deBroglie_wavelength(T)
+        arg = 2.0 * beta / (w_integral**2)
+        I_vals = self.I(arg)
+        V_r = T * arg - mu
+        integrand = w_integral**5 * I_vals * V_r
+        Epot = (2.0 * np.pi * c**3 / lam**3) * np.trapezoid(integrand, w_integral)
+
         P = (2.0 / 9.0) * (N / V) * T * (b**3 / alpha) * fermi_dirac_integral_three_half(beta[-1] / b) * gamma5h
         U = 1.5 * P + 0.5 * Epot / V
-        mu = T * (beta[-1] / b)
         return {'U' : U, 'P' : P, 'mu' : mu, 'beta(0)' : beta[0]}
 
