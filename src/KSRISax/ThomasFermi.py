@@ -1,11 +1,10 @@
 import equinox as eqx
 import numpy as np
-from scipy.integrate import solve_bvp, quad
+from scipy.integrate import solve_bvp
 from FDint_JAX import fermi_dirac_integral_half, fermi_dirac_integral_three_half
 from .chem import thermal_deBroglie_wavelength
 
-def integrand(x, y):
-    return x**1.5/(np.exp(x-y)+1)
+gamma5h = 3 * np.sqrt(np.pi) / 4
 
 class ThomasFermiSolver(eqx.Module):
     n_bvp_points : int = 200
@@ -92,7 +91,7 @@ class ThomasFermiSolver(eqx.Module):
         w_integral = np.linspace(self.eps,wb,self.nw_integral)
         beta = beta_sol(w_integral)[0]
         Epot = 0.0
-        P = (2.0 / 9.0) * (N / V) * T * (b**3 / alpha) * quad(integrand, 0.0, np.inf, args=(beta[-1]/b,))[0] #* fermi_dirac_integral_three_half(beta[-1] / b) / 0.75 #/ (3 * np.sqrt(np.pi) / 4)
+        P = (2.0 / 9.0) * (N / V) * T * (b**3 / alpha) * fermi_dirac_integral_three_half(beta[-1] / b) * gamma5h
         U = 1.5 * P + 0.5 * Epot / V
         mu = T * beta[-1]
         return {'U' : U, 'P' : P, 'mu' : mu, 'beta(0)' : beta[0]}
