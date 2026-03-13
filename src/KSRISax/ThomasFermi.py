@@ -7,6 +7,7 @@ from FDint_JAX import fermi_dirac_integral_half, fermi_dirac_integral_three_half
 from .chem import thermal_deBroglie_wavelength
 
 gamma3h = 0.5 * np.sqrt(np.pi)
+gamma3h = 0.5 * np.sqrt(np.pi)
 gamma5h = 3 * np.sqrt(np.pi) / 4
 
 
