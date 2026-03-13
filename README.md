@@ -23,4 +23,3 @@ Perform local editable install:
 pip install -e .[dev]
 ```
 
-And edit the ```__init__.py``` file in the FDint_JAX package, turning _VJP_VERSION to False.
