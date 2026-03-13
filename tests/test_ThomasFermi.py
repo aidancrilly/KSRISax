@@ -2,12 +2,14 @@ from KSRISax.ThomasFermi import ThomasFermiSolver
 import numpy as np
 import scipy.constants as sc
 import jax
+import pytest
 
 jax.config.update('jax_enable_x64', True)
 
-def test_ThomasFermiSolver():
+@pytest.mark.parametrize("method", ['relaxation_JAX','scipy'])
+def test_ThomasFermiSolver(method):
 
-    TF = ThomasFermiSolver()
+    TF = ThomasFermiSolver(method = method)
 
     # Pressures, b and beta boundary values from table XI of Feynman, Metropolis and Teller
     # For 56Fe

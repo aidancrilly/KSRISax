@@ -17,6 +17,7 @@ class Thermodynamics(eqx.Module):
     SCF_convergence_threshold: float = eqx.field(static=True, default=1e-4)
     SCF_L_max: int = eqx.field(static=True, default=0)
     SCF_damping: float = eqx.field(static=True, default=0.99)
+    verbose: bool = eqx.field(static=True, default=True)
 
     def _solve_SCF(self, V, T, n_initial):
         # Set up
@@ -36,7 +37,7 @@ class Thermodynamics(eqx.Module):
             convergence_threshold=self.SCF_convergence_threshold,
             L_max=self.SCF_L_max,
             FPI_damping=self.SCF_damping,
-            verbose=True)
+            verbose=self.verbose)
 
         # Run SCF to get energies, degeneracies, and chemical potential
         n_SCF, scf_result = SCFS(self.N, T, n_initial)
@@ -52,7 +53,7 @@ class Thermodynamics(eqx.Module):
         # Internal energy
         U_bound = scf_result['U_bound']
         U_free = ((jnp.sqrt(2) * V * T**(5/2)) / (jnp.pi**2)) * (3 * jnp.sqrt(jnp.pi) / 4) * fermi_dirac_integral_three_half(mu/T)
-        U = U_bound + U_free
+        U = (U_bound + U_free) / V
 
         # Number of free electrons
         Z = scf_result['occ']['free_occ']
@@ -66,8 +67,8 @@ class Thermodynamics(eqx.Module):
         F = U - T*S
 
         # Pressure
-        P_free = (2/3) * U_free
-        P = scf_result['P_KS'] + P_free
+        P_free = (2/3) * U_free / V
+        P = P_free # + scf_result['P_KS']
 
         return U, (P, F, Z, S, mu)
 

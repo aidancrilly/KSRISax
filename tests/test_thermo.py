@@ -1,18 +1,32 @@
+#%%
 from KSRISax.thermo import Thermodynamics
+from KSRISax.ThomasFermi import ThomasFermiSolver
 import jax.numpy as jnp
 import jax
+import time
+
+jax.config.update('jax_enable_x64', True)
+
+N = 13
 
 therm = Thermodynamics(
-    N=13.0,
+    N=N,
     rmin=1e-5,
     Nr=200,
     SCF_max_iterations=200,
     SCF_L_max=3,
     SCF_convergence_threshold=1e-6,
-    SCF_damping=0.1
+    SCF_damping=0.1,
+    verbose=False
     )
 
-Ts = jnp.logspace(-1,0,20)
+TF = ThomasFermiSolver(
+    method = 'relaxation_JAX',
+    tol = 1e-3,
+    eps = 1e-6
+    )
+
+Ts = jnp.logspace(-1,2,50)
 
 Rs = [30.0,10.0,5.0,2.0]
 
@@ -20,37 +34,65 @@ import matplotlib.pyplot as plt
 
 n_guess = jnp.zeros(therm.Nr)
 
-fig = plt.figure(dpi=200)
-ax1 = fig.add_subplot(221)
-ax2 = fig.add_subplot(222)
-ax3 = fig.add_subplot(223)
-ax4 = fig.add_subplot(224)
+Us, Ps, Zs, mus = [], [], [], []
+U_TFs, P_TFs, Z_TFs, mu_TFs = [], [], [], []
 
 for R in Rs:
     V = 4 * jnp.pi * (R)**3 / 3
-
-    Us, Ps, Zs, mus = [], [], [], []
+    
     for i,T in enumerate(Ts):
         print(f'T = {T} Ha')
+        print('DFT calc')
+        start = time.time()
         therm_out = therm.nograd_call(V,T,n_guess)
-        # n_guess = therm_out['n_SCF']
+        print(f'Runtime: {time.time()-start}')
 
         Us.append(therm_out['U'])
         Ps.append(therm_out['P'])
         Zs.append(therm_out['Z'])
         mus.append(therm_out['mu'])
 
-    ax1.semilogx(Ts,Us,label=f'R = {R:.1f}')
-    ax2.semilogx(Ts,Ps)
-    ax3.semilogx(Ts,Zs)
-    ax4.semilogx(Ts,mus)
+        print('TF calc')
+        start = time.time()
+        TF_out = TF(N, V, T)
+        print(f'Runtime: {time.time()-start}')
+        U_TFs.append(TF_out['U'])
+        P_TFs.append(TF_out['P'])
+        Z_TFs.append(TF_out['Z'])
+        mu_TFs.append(TF_out['mu'])
+
+#%%
+
+fig = plt.figure(dpi=200)
+ax1 = fig.add_subplot(221)
+ax2 = fig.add_subplot(222)
+ax3 = fig.add_subplot(223)
+ax4 = fig.add_subplot(224)
+
+Us, Ps, Zs, mus = jnp.array(Us).reshape(len(Rs),-1), jnp.array(Ps).reshape(len(Rs),-1), jnp.array(Zs).reshape(len(Rs),-1), jnp.array(mus).reshape(len(Rs),-1)
+U_TFs, P_TFs, Z_TFs, mu_TFs = jnp.array(U_TFs).reshape(len(Rs),-1), jnp.array(P_TFs).reshape(len(Rs),-1), jnp.array(Z_TFs).reshape(len(Rs),-1), jnp.array(mu_TFs).reshape(len(Rs),-1)
+
+for i,R in enumerate(Rs):
+    V = 4 * jnp.pi * (R)**3 / 3
+
+    for iT, T in enumerate(Ts):
+
+        ax1.semilogx(Ts,Us[i,:]*V,label=f'R = {R:.1f}')
+        ax2.semilogx(Ts,Ps[i,:]*V/(N*T))
+        ax3.semilogx(Ts,Zs[i,:])
+        ax4.semilogx(Ts,mus[i,:])
+
+        ax1.semilogx(Ts,U_TFs[i,:]*V,ls='--',c='k')
+        ax2.semilogx(Ts,P_TFs[i,:]*V/(N*T),ls='--',c='k')
+        ax3.semilogx(Ts,Z_TFs[i,:],ls='--',c='k')
+        ax4.semilogx(Ts,mu_TFs[i,:],ls='--',c='k')
 
 ax1.legend(frameon=False)
 
 fig.suptitle('Al DFT + LDA X')
 
-ax1.set_ylabel('U')
-ax2.set_ylabel('P')
+ax1.set_ylabel('U V')
+ax2.set_ylabel('P V / (Z kT)')
 ax3.set_ylabel('Z')
 ax4.set_ylabel('mu')
 
@@ -91,3 +133,5 @@ fig.tight_layout()
 # plt.tight_layout()
 
 plt.show()
+
+# %%
