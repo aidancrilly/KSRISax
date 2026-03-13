@@ -8,6 +8,7 @@ Work in progress, currently implemented:
 - Finite volume Poisson solver
 - Chemical potential root finding with continuum states
 - Self consistent field solver with Dirac UEG exchange functional
+- Temperature-dependent Thomas-Fermi solver ala Feynman, Metropolis and Teller for benchmarking
 - Thermodynamics module in development
 
 All differentiable allowing gradient-based methods for iterative solves and trainable models!
