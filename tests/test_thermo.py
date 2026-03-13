@@ -39,7 +39,7 @@ U_TFs, P_TFs, Z_TFs, mu_TFs = [], [], [], []
 
 for R in Rs:
     V = 4 * jnp.pi * (R)**3 / 3
-    
+
     for i,T in enumerate(Ts):
         print(f'T = {T} Ha')
         print('DFT calc')

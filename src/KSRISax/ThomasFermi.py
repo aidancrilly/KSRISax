@@ -1,7 +1,6 @@
 import equinox as eqx
 import numpy as np
 import jax.numpy as jnp
-import lineax as lx
 from scipy.integrate import solve_bvp
 import optimistix as optx
 from FDint_JAX import fermi_dirac_integral_half, fermi_dirac_integral_three_half
@@ -46,7 +45,7 @@ class ThomasFermiSolver(eqx.Module):
         Uses solve_bvp on [eps, wb] to avoid division by zero at w=0.
         """
         if self.method == 'scipy':
-            
+
             def fun(w, y):
                 beta = y[0]
                 dbeta = y[1]
@@ -86,18 +85,18 @@ class ThomasFermiSolver(eqx.Module):
                 raise RuntimeError(f"solve_bvp failed: {sol.message}")
 
             return sol.sol(w_integral)
-        
+
         elif self.method == 'relaxation_JAX':
             w_jnp = jnp.array(w_integral)
             return eqx.filter_jit(self._relax_solve)(a, wb, w_jnp)
-        
+
     def _relax_solve(self, a, wb, w_integral):
 
         def RHS(y, args):
             w_mid = 0.5 * (args['w'][:-1] + args['w'][1:])
             y_mid = 0.5 * (y['y'][:-1] + y['y'][1:])
             dydw_mid = 0.5 * (y['dydw'][:-1] + y['dydw'][1:])
-            
+
             arg = 2.0 * y_mid / (w_mid**2)
             d_dbeta = dydw_mid / w_mid + (w_mid**4) * args['FD_onehalf'](arg) * gamma3h / 2.0
 
@@ -125,7 +124,7 @@ class ThomasFermiSolver(eqx.Module):
                     y['dydw'][-1:] - 2 * y['y'][-1:] / wb
                     ]
                 )
-            }    
+            }
             return e
 
         solver = optx.Dogleg(rtol = self.tol, atol = self.tol, norm = optx.max_norm)
