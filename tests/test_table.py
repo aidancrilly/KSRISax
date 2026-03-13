@@ -64,3 +64,34 @@ def test_EoSTable_build():
 
     # Higher temperature at the same density should give higher pressure
     assert jnp.all(result['P'][:, 1] > result['P'][:, 0]), "Pressure should increase with temperature"
+
+
+def test_hugoniot():
+    # Use hydrogen with minimal SCF settings for a fast test
+    therm = Thermodynamics(
+        N=1,
+        rmin=1e-3,
+        Nr=50,
+        SCF_max_iterations=5,
+        SCF_L_max=0,
+        SCF_convergence_threshold=1e-2,
+        SCF_damping=0.5,
+        verbose=False,
+    )
+    table = EoSTable(Z=1, A=1.008, rho_solid=1.0, thermo=therm)
+
+    rho_norm0 = 1.0
+    T_eV0 = 5.0
+    P_amp_grid = jnp.array([2.0, 5.0, 10.0])
+
+    compression_ratio, T_eV_arr = table.hugoniot(rho_norm0, T_eV0, P_amp_grid)
+
+    # Shape checks
+    assert compression_ratio.shape == (len(P_amp_grid),)
+    assert T_eV_arr.shape == (len(P_amp_grid),)
+
+    # Physical sanity: higher pressure → higher compression and temperature
+    assert jnp.all(compression_ratio > 1.0), "Shock should compress: rho1 > rho0"
+    assert jnp.all(T_eV_arr > T_eV0), "Shock should heat: T1 > T0"
+    assert jnp.all(jnp.diff(compression_ratio) > 0), "Compression should increase with P_amp"
+    assert jnp.all(jnp.diff(T_eV_arr) > 0), "Temperature should increase with P_amp"
