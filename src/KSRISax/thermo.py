@@ -46,7 +46,7 @@ class Thermodynamics(eqx.Module):
 
         return scf_result
 
-    def _calc_EoS(self, V, T, n_initial):
+    def calc_EoS(self, V, T, n_initial):
         scf_result = self._solve_SCF(V, T, n_initial)
         mu = scf_result['mu']
 
@@ -74,7 +74,7 @@ class Thermodynamics(eqx.Module):
 
     def nograd_call(self, V, T, n_initial):
 
-        U, (P, F, Z, S, mu) = eqx.filter_jit(self._calc_EoS)(V, T, n_initial)
+        U, (P, F, Z, S, mu) = eqx.filter_jit(self.calc_EoS)(V, T, n_initial)
 
         thermo_dict = {
             'U': U,
@@ -90,7 +90,7 @@ class Thermodynamics(eqx.Module):
 
     def grad_call(self, V, T, n_initial):
 
-        (U, Cv), (P, F, Z, S, mu) = eqx.filter_jit(eqx.value_and_grad(self._calc_EoS,argnums=1,has_aux=True))(V, T, n_initial)
+        (U, Cv), (P, F, Z, S, mu) = eqx.filter_jit(eqx.value_and_grad(self.calc_EoS,argnums=1,has_aux=True))(V, T, n_initial)
 
         thermo_dict = {
             'U': U,
