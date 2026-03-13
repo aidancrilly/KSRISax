@@ -18,9 +18,10 @@ def test_ThomasFermiSolver():
     alphas             = [7.2021, 3.9774, 9.8160, 6.8602, 3.7659, 6.8918, 0.3121, 5.8808 , 2.3570 , 5.2326  , 30.4768]
     bs                 = [5.4   , 6.6612, 11.52 , 13.52 , 15.68 , 4.205 , 9.245 , 8.2012 , 17.7012, 20.48   , 9.4612 ]
     beta_boundary_vals = [-13.5 ,-22.8914,-51.62,-68.9520,-92.512,-7.4536,-61.2944,-31.0828,-117.3593,-131.072,-33.4928]
+    Epots_over_kTZ     = [-13.575,-5.452,-20.2006,-11.6576,-4.2351,-13.0006,-0.0676,-9.6867,-1.7505,-7.0961,-97.300]
 
-    for V_Angstrom_cubed, T_keV, PV_over_kTZ, alpha_ref, b_ref, beta_boundary_ref in zip(
-        Vs_Angstrom_cubed, Ts_keV, PVs_over_kTZ, alphas, bs, beta_boundary_vals
+    for V_Angstrom_cubed, T_keV, PV_over_kTZ, alpha_ref, b_ref, beta_boundary_ref, Epot_over_kTZ in zip(
+        Vs_Angstrom_cubed, Ts_keV, PVs_over_kTZ, alphas, bs, beta_boundary_vals, Epots_over_kTZ
     ):
         V = V_Angstrom_cubed / (0.148185)
         T = T_keV / (0.0272114)
@@ -39,3 +40,4 @@ def test_ThomasFermiSolver():
         assert np.isclose(beta_boundary_TF, beta_boundary_ref, rtol=1e-2)
         assert np.isclose(res['beta(0)'], alpha_ref, rtol=1e-3)
         assert np.isclose(PV_over_kTZ_TF, PV_over_kTZ, atol=0.025)
+        assert np.isclose(res['Epot']/T/N, Epot_over_kTZ, rtol=1e-2, atol=8e-3)
