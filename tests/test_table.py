@@ -1,5 +1,5 @@
 from KSRISax.table import EoSTable, density_to_volume, amu_to_g, a0_to_cm
-from KSRISax.thermo import Thermodynamics
+from KSRISax.thermo import DFTThermodynamics
 import jax.numpy as jnp
 import numpy as np
 import jax
@@ -29,7 +29,7 @@ def test_density_to_volume():
 
 def test_EoSTable_build():
     # Use hydrogen with minimal SCF settings for a fast test
-    therm = Thermodynamics(
+    therm = DFTThermodynamics(
         N=1,
         rmin=1e-3,
         Nr=50,
@@ -68,7 +68,7 @@ def test_EoSTable_build():
 
 def test_hugoniot():
     # Use hydrogen with minimal SCF settings for a fast test
-    therm = Thermodynamics(
+    therm = DFTThermodynamics(
         N=1,
         rmin=1e-3,
         Nr=50,

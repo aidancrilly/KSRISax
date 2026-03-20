@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import equinox as eqx
 import optimistix as optx
-from KSRISax.thermo import Thermodynamics
+from KSRISax.thermo import DFTThermodynamics
 
 # Unit conversion constants
 eV_to_Ha = 1.0 / 27.2114       # 1 eV in Hartree
@@ -53,7 +53,7 @@ class EoSTable(eqx.Module):
     Z: float = eqx.field(static=True)
     A: float = eqx.field(static=True)
     rho_solid: float = eqx.field(static=True)
-    thermo: Thermodynamics
+    thermo: DFTThermodynamics
 
     def build(self, rho_norm_grid, T_eV_grid):
         """
