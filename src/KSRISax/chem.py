@@ -23,7 +23,7 @@ def ideal_gas_chemical_potential(V, N, T):
     return T * jnp.log(N / V * thermal_deBroglie_wavelength(T)**3)
 
 def find_chemical_potential_w_freecontinuum(energies, degeneracies, V, N, T, tol=1e-6, max_iter=100):
-    mu_lower = ideal_gas_chemical_potential(V, N, T) - 100.0 * T
+    mu_lower = ideal_gas_chemical_potential(V, N, T) + 1.1 * N * np.amin(energies)
     mu_upper = 1.1*fermi_energy(V, N) + 100.0 * T
 
     def root_func(mu, args):
