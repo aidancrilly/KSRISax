@@ -60,6 +60,20 @@ def find_chemical_potential_w_KSstates(energies, degeneracies, V, N, T, tol=1e-6
 
     return opt_result.value, opt_result.aux
 
+def find_free_chemical_potential(V, N, T, tol=1e-6):
+    mu_lower = ideal_gas_chemical_potential(V, N, T) - 100.0 * T
+    mu_upper = 1.1*fermi_energy(V, N) + 100.0 * T
+
+    def root_func(mu, args):
+        free_occ = ((jnp.sqrt(2) * V * T**(3/2)) / (jnp.pi**2)) * jnp.sqrt(jnp.pi) / 2 * fermi_dirac_integral_half(mu/T)
+        return free_occ - N
+
+    mu_guess = mu_lower + T
+    op = opt.Bisection(rtol=tol, atol=tol)
+    opt_result = opt.root_find(root_func, op, y0 = mu_guess, options={'lower': mu_lower, 'upper': mu_upper}, args=None)
+
+    return opt_result.value
+
 def free_entropy_integral(mu,T):
     def _integrand(x,mu,T):
         E = jnp.tan(jnp.pi*x/4.0)
