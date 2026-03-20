@@ -37,7 +37,7 @@ class Thermodynamics(eqx.Module):
 
     def grad_call(self, V, T):
 
-        (U, (P, F, Z, S, mu)), Cv = eqx.filter_jit(jax.value_and_grad(self._calc_EoS,argnums=1,has_aux=True))(V, T)
+        (U, (P, F, Z, S, mu)), Cv = eqx.filter_jit(jax.value_and_grad(self._calc_EoS, argnums=1, has_aux=True))(V, T)
 
         thermo_dict = {
             'U': U,
@@ -60,42 +60,52 @@ class IdealFermiGasThermodynamics(Thermodynamics):
     a chemical potential determination.
     """
 
+    def calc_EoS_from_mu(self, V, T, mu):
+        """Compute free electron EoS quantities given a chemical potential.
+
+        Returns:
+            U_free: Total free electron internal energy (extensive).
+            P_free: Free electron pressure.
+            S_free: Free electron entropy.
+        """
+        U_free = ((jnp.sqrt(2) * V * T**(5/2)) / (jnp.pi**2)) * (3 * jnp.sqrt(jnp.pi) / 4) * fermi_dirac_integral_three_half(mu/T)
+        P_free = (2/3) * U_free / V
+        S_free = self.N * V / (jnp.sqrt(2) * jnp.pi**2) * free_entropy_integral(mu, T)
+        return U_free, P_free, S_free
+
     def _calc_EoS(self, V, T):
         mu = find_free_chemical_potential(V, self.N, T)
+        U_free, P_free, S_free = self.calc_EoS_from_mu(V, T, mu)
 
         # All electrons are free
         Z = self.N
 
-        # Internal energy
-        U_free = ((jnp.sqrt(2) * V * T**(5/2)) / (jnp.pi**2)) * (3 * jnp.sqrt(jnp.pi) / 4) * fermi_dirac_integral_three_half(mu/T)
+        # Energy density
         U = U_free / V
 
-        # Entropy
-        S = self.N*V/(jnp.sqrt(2)*jnp.pi**2)*free_entropy_integral(mu,T)
+        # Helmholtz free energy density
+        F = U - T * S_free
 
-        # Helmholtz free energy
-        F = U - T*S
-
-        # Pressure
-        P = (2/3) * U_free / V
-
-        return U, (P, F, Z, S, mu)
+        return U, (P_free, F, Z, S_free, mu)
 
 
 class DFTThermodynamics(Thermodynamics):
     """DFT-based thermodynamics with SCF solver.
 
-    Includes an IdealFermiGasThermodynamics component for
-    the free electron contribution to the model.
+    Internally initialises an IdealFermiGasThermodynamics to compute
+    the free electron contribution to the equation of state.
     """
-    ideal_fermi_gas: IdealFermiGasThermodynamics
     rmin: float = eqx.field(static=True, default=1e-2)
-    Nr: int = eqx.field(static=True,default=500)
+    Nr: int = eqx.field(static=True, default=500)
     SCF_max_iterations: int = eqx.field(static=True, default=10)
     SCF_convergence_threshold: float = eqx.field(static=True, default=1e-4)
     SCF_L_max: int = eqx.field(static=True, default=0)
     SCF_damping: float = eqx.field(static=True, default=0.99)
     verbose: bool = eqx.field(static=True, default=True)
+    ideal_fermi_gas: IdealFermiGasThermodynamics = eqx.field(static=True, init=False)
+
+    def __post_init__(self):
+        object.__setattr__(self, 'ideal_fermi_gas', IdealFermiGasThermodynamics(N=self.N))
 
     def _solve_SCF(self, V, T, n_initial):
         # Set up
@@ -128,9 +138,11 @@ class DFTThermodynamics(Thermodynamics):
         scf_result = self._solve_SCF(V, T, n_initial)
         mu = scf_result['mu']
 
+        # Free electron contributions via ideal Fermi gas
+        U_free, P_free, S_free = self.ideal_fermi_gas.calc_EoS_from_mu(V, T, mu)
+
         # Internal energy
         U_bound = scf_result['U_bound']
-        U_free = ((jnp.sqrt(2) * V * T**(5/2)) / (jnp.pi**2)) * (3 * jnp.sqrt(jnp.pi) / 4) * fermi_dirac_integral_three_half(mu/T)
         U = (U_bound + U_free) / V
 
         # Number of free electrons
@@ -138,14 +150,12 @@ class DFTThermodynamics(Thermodynamics):
 
         # Entropy
         S_bound = bound_entropy_calc(scf_result['eigvals'], scf_result['degen'], mu, T)
-        S_free = self.N*V/(jnp.sqrt(2)*jnp.pi**2)*free_entropy_integral(mu,T)
         S = S_bound + S_free
 
         # Helmholtz free energy
         F = U - T*S
 
         # Pressure
-        P_free = (2/3) * U_free / V
         P = P_free # + scf_result['P_KS']
 
         return U, (P, F, Z, S, mu)
@@ -168,7 +178,7 @@ class DFTThermodynamics(Thermodynamics):
 
     def grad_call(self, V, T, n_initial):
 
-        (U, (P, F, Z, S, mu)), Cv = eqx.filter_jit(jax.value_and_grad(self._calc_EoS,argnums=1,has_aux=True))(V, T, n_initial)
+        (U, (P, F, Z, S, mu)), Cv = eqx.filter_jit(jax.value_and_grad(self._calc_EoS, argnums=1, has_aux=True))(V, T, n_initial)
 
         thermo_dict = {
             'U': U,

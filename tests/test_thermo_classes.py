@@ -20,16 +20,9 @@ def test_ideal_fermi_gas_is_thermodynamics():
 
 
 def test_dft_is_thermodynamics():
-    """DFTThermodynamics inherits from Thermodynamics."""
-    ideal = IdealFermiGasThermodynamics(N=13.0)
-    dft = DFTThermodynamics(N=13.0, ideal_fermi_gas=ideal)
+    """DFTThermodynamics inherits from Thermodynamics and initialises ideal_fermi_gas internally."""
+    dft = DFTThermodynamics(N=13.0)
     assert isinstance(dft, Thermodynamics)
-
-
-def test_dft_has_ideal_fermi_gas_field():
-    """DFTThermodynamics has an ideal_fermi_gas field."""
-    ideal = IdealFermiGasThermodynamics(N=13.0)
-    dft = DFTThermodynamics(N=13.0, ideal_fermi_gas=ideal)
     assert isinstance(dft.ideal_fermi_gas, IdealFermiGasThermodynamics)
     assert dft.ideal_fermi_gas.N == 13.0
 
@@ -84,3 +77,43 @@ def test_ideal_fermi_gas_grad_call():
 
     # All electrons are free
     assert jnp.isclose(result['Z'], N)
+
+
+def test_ideal_fermi_gas_calc_EoS_from_mu():
+    """calc_EoS_from_mu returns consistent U_free, P_free, S_free."""
+    N = 13.0
+    V = 100.0
+    T = 1.0
+
+    ideal = IdealFermiGasThermodynamics(N=N)
+    mu = find_free_chemical_potential(V, N, T)
+    U_free, P_free, S_free = ideal.calc_EoS_from_mu(V, T, mu)
+
+    # P = (2/3) U_free / V
+    assert jnp.isclose(P_free, (2.0 / 3.0) * U_free / V, rtol=1e-10)
+
+    # U_free and P_free should be positive
+    assert U_free > 0
+    assert P_free > 0
+
+
+def test_ideal_fermi_gas_classical_limit():
+    """At high T and low density, ideal Fermi gas approaches classical ideal gas.
+
+    Classical ideal gas: PV = NT, U_total = (3/2)NT.
+    Here U is energy density so U*V gives total energy.
+    """
+    N = 1.0
+    V = 1e6  # Very large volume -> low density
+    T = 1e3  # Very high temperature
+
+    ideal = IdealFermiGasThermodynamics(N=N)
+    result = ideal.nograd_call(V, T)
+
+    # Classical ideal gas: PV/(NT) -> 1
+    PV_over_NT = result['P'] * V / (N * T)
+    assert jnp.isclose(PV_over_NT, 1.0, rtol=0.01), f"PV/(NT) = {PV_over_NT}, expected ~1.0"
+
+    # Classical ideal gas: U*V = (3/2)*N*T
+    UV_over_NT = result['U'] * V / (N * T)
+    assert jnp.isclose(UV_over_NT, 1.5, rtol=0.01), f"U*V/(NT) = {UV_over_NT}, expected ~1.5"
