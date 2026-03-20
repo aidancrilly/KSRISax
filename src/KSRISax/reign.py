@@ -90,23 +90,43 @@ class KohnShamSolver(eqx.Module):
     @jax.jit
     def EigenSolve(self, l, V_ext, V_H, V_xc):
 
-        # Creating matrices for Numerov
-        A_lower = jnp.ones(self.grid.Nx-1)
-        A_mid = -2 * jnp.ones(self.grid.Nx)
-        A_upper = jnp.ones(self.grid.Nx-1)
+        use_ext = self.grid.Nextend > 0
+        Ntotal = self.grid.Nx + self.grid.Nextend
 
-        B_lower = jnp.ones(self.grid.Nx-1)
-        B_mid = 10 * jnp.ones(self.grid.Nx)
-        B_upper = jnp.ones(self.grid.Nx-1)
+        # Select grid arrays and pad potentials for extended grid
+        if use_ext:
+            xc = self.grid.xc_ext
+            xb = self.grid.xb_ext
+            vol = self.grid.vol_ext
+            V_pad = jnp.zeros(self.grid.Nextend)
+            V_ext_solve = jnp.concatenate([V_ext, V_pad])
+            V_H_solve = jnp.concatenate([V_H, V_pad])
+            V_xc_solve = jnp.concatenate([V_xc, V_pad])
+        else:
+            xc = self.grid.xc
+            xb = self.grid.xb
+            vol = self.grid.vol
+            V_ext_solve = V_ext
+            V_H_solve = V_H
+            V_xc_solve = V_xc
+
+        # Creating matrices for Numerov
+        A_lower = jnp.ones(Ntotal-1)
+        A_mid = -2 * jnp.ones(Ntotal)
+        A_upper = jnp.ones(Ntotal-1)
+
+        B_lower = jnp.ones(Ntotal-1)
+        B_mid = 10 * jnp.ones(Ntotal)
+        B_upper = jnp.ones(Ntotal-1)
 
         if(self.grid.log):
             A = (jnp.diag(A_lower, k = -1) + jnp.diag(A_mid, k = 0) + jnp.diag(A_upper, k = 1)) / self.grid.log_spacing ** 2
             B = (jnp.diag(B_lower, k = -1) + jnp.diag(B_mid, k = 0) + jnp.diag(B_upper, k = 1)) / 12
 
             # Potential terms
-            Vdiag = V_ext + V_H + V_xc
-            Udiag = jnp.diag(0.5 * (l * (l + 1) + 0.25) + self.grid.xc**2 * Vdiag)
-            R2 = jnp.diag(self.grid.xc**2)
+            Vdiag = V_ext_solve + V_H_solve + V_xc_solve
+            Udiag = jnp.diag(0.5 * (l * (l + 1) + 0.25) + xc**2 * Vdiag)
+            R2 = jnp.diag(xc**2)
 
             # constructing Hamiltonian matrix
             H = -1/2 * A + B @ Udiag
@@ -117,8 +137,8 @@ class KohnShamSolver(eqx.Module):
 
         else:
             # Potential terms
-            V_centrifugal = jnp.where(self.grid.xc > 1e-10, l * (l + 1) / (2.0 * self.grid.xc**2), 0.0)
-            Vdiag = V_ext + V_H + V_xc + V_centrifugal
+            V_centrifugal = jnp.where(xc > 1e-10, l * (l + 1) / (2.0 * xc**2), 0.0)
+            Vdiag = V_ext_solve + V_H_solve + V_xc_solve + V_centrifugal
 
             # Impose boundary condition at r=0
             # Ghost cell u_-1 = (-1)^(l+1) * u_1 --> modifies first row of A and B
@@ -137,40 +157,48 @@ class KohnShamSolver(eqx.Module):
 
         if(self.grid.log):
             # Transform to u = sqrt(r/r0) y
-            eigvecs *= jnp.sqrt(self.grid.xc/self.grid.xc[0])[1:, jnp.newaxis]
+            eigvecs *= jnp.sqrt(xc/xc[0])[1:, jnp.newaxis]
             eigvecs = jnp.insert(eigvecs,0,0.0,axis=0)
 
-        # Normalise eigenvectors
-        norm_factors = jnp.sqrt(jnp.sum(self.compute_normalised_densities(eigvecs) * self.grid.vol[:, jnp.newaxis], axis=0))
+        # Normalise eigenvectors on the (extended) grid
+        norm_densities = jax.vmap(lambda u: self._normalised_density(u, xc, xb, vol), in_axes=1, out_axes=1)(eigvecs)
+        norm_factors = jnp.sqrt(jnp.sum(norm_densities * vol[:, jnp.newaxis], axis=0))
         eigvecs = eigvecs / norm_factors
+
+        # Trim eigenvectors to original grid if extended grid was used
+        if use_ext:
+            eigvecs = eigvecs[:self.grid.Nx, :]
 
         return eigvals, eigvecs
 
-    def compute_normalised_density(self,u):
+    @staticmethod
+    def _normalised_density(u, xc, xb, vol):
         # Compute 4pi/V \int (u/r)^2 r^2 dr for each radial volume
         # Form linear interpolator of u(r) based on cell centred u
         # Compute finite volume integrals
 
         # Set up ghost cells
-        r_ghost = jnp.concatenate([jnp.zeros(1),self.grid.xc,self.grid.xb[-1:]])
-        u_ghost = jnp.concatenate([jnp.zeros(1),u,u[-1:]])
+        r_ghost = jnp.concatenate([jnp.zeros(1), xc, xb[-1:]])
+        u_ghost = jnp.concatenate([jnp.zeros(1), u, u[-1:]])
 
         # Integral of the form (a+b*r)^2 dr
         a = u_ghost[1:-1] - (u_ghost[1:-1]-u_ghost[:-2])*r_ghost[1:-1]/(r_ghost[1:-1]-r_ghost[:-2])
         b = (u_ghost[1:-1]-u_ghost[:-2])/(r_ghost[1:-1]-r_ghost[:-2])
 
-        n_lower = a**2*(self.grid.xc-self.grid.xb[:-1]) + a*b*(self.grid.xc**2-self.grid.xb[:-1]**2) + b**2*(self.grid.xc**3-self.grid.xb[:-1]**3)/3
+        n_lower = a**2*(xc-xb[:-1]) + a*b*(xc**2-xb[:-1]**2) + b**2*(xc**3-xb[:-1]**3)/3
 
         a = u_ghost[1:-1] - (u_ghost[2:]-u_ghost[1:-1])*r_ghost[1:-1]/(r_ghost[2:]-r_ghost[1:-1])
         b = (u_ghost[2:]-u_ghost[1:-1])/(r_ghost[2:]-r_ghost[1:-1])
 
-        n_upper = a**2*(self.grid.xb[1:]-self.grid.xc) + a*b*(self.grid.xb[1:]**2-self.grid.xc**2) + b**2*(self.grid.xb[1:]**3-self.grid.xc**3)/3
+        n_upper = a**2*(xb[1:]-xc) + a*b*(xb[1:]**2-xc**2) + b**2*(xb[1:]**3-xc**3)/3
 
-        n = n_lower+n_upper
-
-        n *= 4*jnp.pi/self.grid.vol
+        n = n_lower + n_upper
+        n *= 4*jnp.pi/vol
 
         return n
+
+    def compute_normalised_density(self, u):
+        return self._normalised_density(u, self.grid.xc, self.grid.xb, self.grid.vol)
 
     def compute_normalised_densities(self,eigvecs):
         return jax.vmap(self.compute_normalised_density,in_axes=1,out_axes=1)(eigvecs)
