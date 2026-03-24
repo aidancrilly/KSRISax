@@ -188,7 +188,7 @@ class ThomasFermiSolver(eqx.Module):
 
         # From Virial
         K = 1.5 * P - 0.5 * Epot / V
-        
+
         U = 1.5 * P + Epot / V
         Z = V * (2 / lam**3) * I_vals[-1]
         F = Z*mu - 2/3*K - Eee / V
