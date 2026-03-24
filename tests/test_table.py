@@ -95,3 +95,30 @@ def test_hugoniot():
     assert jnp.all(T_eV_arr > T_eV0), "Shock should heat: T1 > T0"
     assert jnp.all(jnp.diff(compression_ratio) > 0), "Compression should increase with P_amp"
     assert jnp.all(jnp.diff(T_eV_arr) > 0), "Temperature should increase with P_amp"
+
+if __name__ == '__main__':
+    N = 13
+
+    therm = DFTThermodynamics(
+        N=N,
+        rmin=1e-5,
+        Nr=200,
+        SCF_max_iterations=200,
+        SCF_L_max=3,
+        SCF_convergence_threshold=1e-6,
+        SCF_damping=0.1,
+        verbose=False
+        )
+    table = EoSTable(Z=13, A=27.0, rho_solid=2.7, thermo=therm)
+
+    rho_norm0 = 1.0
+    T_eV0 = 10.0
+    P_amp_grid = jnp.geomspace(1.0,1e1,5)
+
+    compression_ratio, T_eV_arr = table.hugoniot(rho_norm0, T_eV0, P_amp_grid)
+
+    import matplotlib.pyplot as plt
+
+    plt.semilogy(compression_ratio, P_amp_grid)
+
+    plt.show()

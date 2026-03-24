@@ -101,7 +101,7 @@ class EoSTable(eqx.Module):
 
         def _single_point(V, T):
             """Evaluate EoS at a single (V, T) point."""
-            U, (P, F, Z_free, S, mu) = self.thermo.calc_EoS(V, T, n_initial)
+            U, (P, F, Z_free, S, mu) = self.thermo.calc_EoS(T, V, n_initial)
             return U, P, F, Z_free, S, mu
 
         # Vmap over all (V, T) pairs on the flattened grid, then JIT-compile
@@ -158,14 +158,14 @@ class EoSTable(eqx.Module):
         n_initial = jnp.zeros(self.thermo.Nr)
 
         # Evaluate the initial (unshocked) state once outside the vmap
-        U0, (P0, _, _, _, _) = eqx.filter_jit(self.thermo.calc_EoS)(V0, T_Ha0, n_initial)
+        U0, (P0, _, _, _, _) = eqx.filter_jit(self.thermo.calc_EoS)(T_Ha0, V0, n_initial)
         E0 = U0 * V0  # internal energy per atom (Ha)
 
         def _hugoniot_residuals(y, P_target):
             """2-D residual: [Hugoniot condition, pressure condition]."""
             rho_norm1, T_Ha1 = y[0], y[1]
             V1 = density_to_volume(self.A, self.rho_solid * rho_norm1)
-            U1, (P1, _, _, _, _) = self.thermo.calc_EoS(V1, T_Ha1, n_initial)
+            U1, (P1, _, _, _, _) = self.thermo.calc_EoS(T_Ha1, V1, n_initial)
             E1 = U1 * V1
             hugoniot_res = E1 - E0 - 0.5 * (P1 + P0) * (V0 - V1)
             pressure_res = P1 - P_target
