@@ -8,6 +8,7 @@ from KSRISax.potentials import CoulombPotential, LDA_exchange
 from KSRISax.SCF import SelfConsistentFieldSolver
 from KSRISax.grid import LogarithmicGrid
 from KSRISax.chem import free_entropy_integral, bound_entropy_calc, find_free_chemical_potential
+from KSRISax.ThomasFermi import ThomasFermiSolver
 from FDint_JAX import fermi_dirac_integral_three_half
 
 
@@ -16,12 +17,12 @@ class Thermodynamics(eqx.Module):
     N: float = eqx.field(static=True)
 
     @abc.abstractmethod
-    def _calc_EoS(self, V, T):
+    def _calc_EoS(self, T, V):
         raise NotImplementedError
 
-    def nograd_call(self, V, T):
+    def nograd_call(self, T, V):
 
-        U, (P, F, Z, S, mu) = eqx.filter_jit(self._calc_EoS)(V, T)
+        U, (P, F, Z, S, mu) = eqx.filter_jit(self._calc_EoS)(T, V)
 
         thermo_dict = {
             'U': U,
@@ -35,9 +36,9 @@ class Thermodynamics(eqx.Module):
 
         return thermo_dict
 
-    def grad_call(self, V, T):
+    def grad_call(self, T, V):
 
-        (U, (P, F, Z, S, mu)), Cv = eqx.filter_jit(jax.value_and_grad(self._calc_EoS, argnums=1, has_aux=True))(V, T)
+        (U, (P, F, Z, S, mu)), Cv = eqx.filter_jit(eqx.filter_value_and_grad(self._calc_EoS,  has_aux=True))(T, V)
 
         thermo_dict = {
             'U': U,
@@ -60,7 +61,7 @@ class IdealFermiGasThermodynamics(Thermodynamics):
     a chemical potential determination.
     """
 
-    def calc_EoS_from_mu(self, V, T, mu):
+    def calc_EoS_from_mu(self, T, V, mu):
         """Compute free electron EoS quantities given a chemical potential.
 
         Returns:
@@ -73,7 +74,7 @@ class IdealFermiGasThermodynamics(Thermodynamics):
         S_free = self.N * V / (jnp.sqrt(2) * jnp.pi**2) * free_entropy_integral(mu, T)
         return U_free, P_free, S_free
 
-    def _calc_EoS(self, V, T):
+    def _calc_EoS(self, T, V):
         mu = find_free_chemical_potential(V, self.N, T)
         U_free, P_free, S_free = self.calc_EoS_from_mu(V, T, mu)
 
@@ -89,6 +90,29 @@ class IdealFermiGasThermodynamics(Thermodynamics):
         return U, (P_free, F, Z, S_free, mu)
 
 
+class TFThermodynamics(Thermodynamics):
+    """ Thomas-Fermi thermodynamics """
+    TF_solver_method: str = 'Relaxation_JAX'
+    n_bvp_points : int = 200
+    nw_integral : int = 400
+    eps : float = 1e-8
+    max_nodes : int = int(2e5)
+    tol : float = 1e-3
+
+    def _calc_EoS(self, T, V):
+        solver = ThomasFermiSolver(
+            method = self.TF_solver_method,
+            n_bvp_points = self.n_bvp_points,
+            nw_integral = self.nw_integral,
+            eps = self.eps,
+            max_nodes = self.max_nodes,
+            tol = self.tol
+        )
+
+        solver_out = solver(self.N, V, T)
+
+        return solver_out['U'], (solver_out['P'], solver_out['F'], solver_out['Z'], solver_out['S'], solver_out['mu'])
+
 class DFTThermodynamics(Thermodynamics):
     """DFT-based thermodynamics with SCF solver.
 
@@ -102,10 +126,6 @@ class DFTThermodynamics(Thermodynamics):
     SCF_L_max: int = eqx.field(static=True, default=0)
     SCF_damping: float = eqx.field(static=True, default=0.99)
     verbose: bool = eqx.field(static=True, default=True)
-    ideal_fermi_gas: IdealFermiGasThermodynamics = eqx.field(static=True, init=False)
-
-    def __post_init__(self):
-        object.__setattr__(self, 'ideal_fermi_gas', IdealFermiGasThermodynamics(N=self.N))
 
     def _solve_SCF(self, V, T, n_initial):
         # Set up
@@ -134,12 +154,13 @@ class DFTThermodynamics(Thermodynamics):
 
         return scf_result
 
-    def calc_EoS(self, V, T, n_initial):
+    def _calc_EoS(self, T, V, n_initial):
         scf_result = self._solve_SCF(V, T, n_initial)
         mu = scf_result['mu']
 
         # Free electron contributions via ideal Fermi gas
-        U_free, P_free, S_free = self.ideal_fermi_gas.calc_EoS_from_mu(V, T, mu)
+        ideal_fermi_gas = IdealFermiGasThermodynamics(self.N)
+        U_free, P_free, S_free = ideal_fermi_gas.calc_EoS_from_mu(T, V, mu)
 
         # Internal energy
         U_bound = scf_result['U_bound']
@@ -160,12 +181,9 @@ class DFTThermodynamics(Thermodynamics):
 
         return U, (P, F, Z, S, mu)
 
-    # Alias satisfying the abstract _calc_EoS requirement from the base class
-    _calc_EoS = calc_EoS
+    def nograd_call(self, T, V, n_initial):
 
-    def nograd_call(self, V, T, n_initial):
-
-        U, (P, F, Z, S, mu) = eqx.filter_jit(self.calc_EoS)(V, T, n_initial)
+        U, (P, F, Z, S, mu) = eqx.filter_jit(self._calc_EoS)(T, V, n_initial)
 
         thermo_dict = {
             'U': U,
@@ -179,9 +197,9 @@ class DFTThermodynamics(Thermodynamics):
 
         return thermo_dict
 
-    def grad_call(self, V, T, n_initial):
+    def grad_call(self, T, V, n_initial):
 
-        (U, (P, F, Z, S, mu)), Cv = eqx.filter_jit(jax.value_and_grad(self.calc_EoS, argnums=1, has_aux=True))(V, T, n_initial)
+        (U, (P, F, Z, S, mu)), Cv = eqx.filter_jit(eqx.filter_value_and_grad(self._calc_EoS, has_aux=True))(T, V, n_initial)
 
         thermo_dict = {
             'U': U,
