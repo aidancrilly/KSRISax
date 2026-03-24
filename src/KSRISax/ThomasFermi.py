@@ -182,14 +182,23 @@ class ThomasFermiSolver(eqx.Module):
         EeN = - (4.0 * np.pi * N * c**2 / lam**3) * np.trapezoid(integrand_eN, w_integral)
 
         Epot = 0.5 * E_nV + 0.5 * EeN
+        Eee = Epot - EeN
 
         P = (2.0 / 9.0) * (N / V) * T * (b**3 / alpha) * fermi_dirac_integral_three_half(beta[-1] / b) * gamma5h
+
+        # From Virial
+        K = 1.5 * P - 0.5 * Epot / V
+        
         U = 1.5 * P + Epot / V
         Z = V * (2 / lam**3) * I_vals[-1]
+        F = Z*mu - 2/3*K - Eee / V
+        S = (U - F) / T
 
         return {
             'U' : U,
             'P' : P,
+            'F' : F,
+            'S' : S,
             'mu' : mu,
             'Z' : Z,
             'Epot' : Epot,

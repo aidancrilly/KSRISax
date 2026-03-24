@@ -1,5 +1,5 @@
 #%%
-from KSRISax.thermo import Thermodynamics
+from KSRISax.thermo import DFTThermodynamics
 from KSRISax.ThomasFermi import ThomasFermiSolver
 import jax.numpy as jnp
 import jax
@@ -9,7 +9,7 @@ jax.config.update('jax_enable_x64', True)
 
 N = 13
 
-therm = Thermodynamics(
+therm = DFTThermodynamics(
     N=N,
     rmin=1e-5,
     Nr=200,
@@ -26,6 +26,8 @@ TF = ThomasFermiSolver(
     eps = 1e-6
     )
 
+
+
 Ts = jnp.logspace(-1,2,50)
 
 Rs = [30.0,10.0,5.0,2.0]
@@ -34,17 +36,19 @@ import matplotlib.pyplot as plt
 
 n_guess = jnp.zeros(therm.Nr)
 
+#%%
+
 Us, Ps, Zs, mus = [], [], [], []
 U_TFs, P_TFs, Z_TFs, mu_TFs = [], [], [], []
 
 for R in Rs:
     V = 4 * jnp.pi * (R)**3 / 3
-
+    
     for i,T in enumerate(Ts):
         print(f'T = {T} Ha')
         print('DFT calc')
         start = time.time()
-        therm_out = therm.nograd_call(V,T,n_guess)
+        therm_out = therm.nograd_call(T,V,n_guess)
         print(f'Runtime: {time.time()-start}')
 
         Us.append(therm_out['U'])
@@ -75,23 +79,21 @@ U_TFs, P_TFs, Z_TFs, mu_TFs = jnp.array(U_TFs).reshape(len(Rs),-1), jnp.array(P_
 for i,R in enumerate(Rs):
     V = 4 * jnp.pi * (R)**3 / 3
 
-    for iT, T in enumerate(Ts):
+    ax1.loglog(Ts,(Us[i,:]-Us[i,0])*V/(N*Ts),label=f'R = {R:.1f}')
+    ax2.loglog(Ts,Ps[i,:]*V/(N*Ts))
+    ax3.semilogx(Ts,Zs[i,:])
+    ax4.semilogx(Ts,mus[i,:])
 
-        ax1.semilogx(Ts,Us[i,:]*V,label=f'R = {R:.1f}')
-        ax2.semilogx(Ts,Ps[i,:]*V/(N*T))
-        ax3.semilogx(Ts,Zs[i,:])
-        ax4.semilogx(Ts,mus[i,:])
-
-        ax1.semilogx(Ts,U_TFs[i,:]*V,ls='--',c='k')
-        ax2.semilogx(Ts,P_TFs[i,:]*V/(N*T),ls='--',c='k')
-        ax3.semilogx(Ts,Z_TFs[i,:],ls='--',c='k')
-        ax4.semilogx(Ts,mu_TFs[i,:],ls='--',c='k')
+    ax1.semilogx(Ts,(U_TFs[i,:]-U_TFs[i,0])*V/(N*Ts),ls='--',c='k')
+    ax2.semilogx(Ts,P_TFs[i,:]*V/(N*Ts),ls='--',c='k')
+    ax3.semilogx(Ts,Z_TFs[i,:],ls='--',c='k')
+    ax4.semilogx(Ts,mu_TFs[i,:],ls='--',c='k')
 
 ax1.legend(frameon=False)
 
 fig.suptitle('Al DFT + LDA X')
 
-ax1.set_ylabel('U V')
+ax1.set_ylabel('U V / (Z kT)')
 ax2.set_ylabel('P V / (Z kT)')
 ax3.set_ylabel('Z')
 ax4.set_ylabel('mu')

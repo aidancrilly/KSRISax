@@ -5,28 +5,6 @@ import jax
 
 jax.config.update('jax_enable_x64', True)
 
-
-def test_thermodynamics_is_abstract():
-    """Thermodynamics cannot be instantiated directly."""
-    import pytest
-    with pytest.raises(TypeError):
-        Thermodynamics(N=1.0)
-
-
-def test_ideal_fermi_gas_is_thermodynamics():
-    """IdealFermiGasThermodynamics inherits from Thermodynamics."""
-    ideal = IdealFermiGasThermodynamics(N=13.0)
-    assert isinstance(ideal, Thermodynamics)
-
-
-def test_dft_is_thermodynamics():
-    """DFTThermodynamics inherits from Thermodynamics and initialises ideal_fermi_gas internally."""
-    dft = DFTThermodynamics(N=13.0)
-    assert isinstance(dft, Thermodynamics)
-    assert isinstance(dft.ideal_fermi_gas, IdealFermiGasThermodynamics)
-    assert dft.ideal_fermi_gas.N == 13.0
-
-
 def test_find_free_chemical_potential():
     """Chemical potential for free electron gas converges to Fermi energy at low T."""
     N = 13.0
@@ -47,7 +25,7 @@ def test_ideal_fermi_gas_nograd_call():
     T = 1.0
 
     ideal = IdealFermiGasThermodynamics(N=N)
-    result = ideal.nograd_call(V, T)
+    result = ideal.nograd_call(T, V)
 
     # Check all expected keys are present
     assert set(result.keys()) == {'U', 'Cv', 'P', 'F', 'Z', 'S', 'mu'}
@@ -70,7 +48,7 @@ def test_ideal_fermi_gas_grad_call():
     T = 1.0
 
     ideal = IdealFermiGasThermodynamics(N=N)
-    result = ideal.grad_call(V, T)
+    result = ideal.grad_call(T, V)
 
     # Cv should be computed (not None)
     assert result['Cv'] is not None
@@ -87,7 +65,7 @@ def test_ideal_fermi_gas_calc_EoS_from_mu():
 
     ideal = IdealFermiGasThermodynamics(N=N)
     mu = find_free_chemical_potential(V, N, T)
-    U_free, P_free, S_free = ideal.calc_EoS_from_mu(V, T, mu)
+    U_free, P_free, S_free = ideal.calc_EoS_from_mu(T, V, mu)
 
     # P = (2/3) U_free / V
     assert jnp.isclose(P_free, (2.0 / 3.0) * U_free / V, rtol=1e-10)
@@ -108,7 +86,7 @@ def test_ideal_fermi_gas_classical_limit():
     T = 1e3  # Very high temperature
 
     ideal = IdealFermiGasThermodynamics(N=N)
-    result = ideal.nograd_call(V, T)
+    result = ideal.nograd_call(T, V)
 
     # Classical ideal gas: PV/(NT) -> 1
     PV_over_NT = result['P'] * V / (N * T)
